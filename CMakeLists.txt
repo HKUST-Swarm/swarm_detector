@@ -14,7 +14,12 @@ find_package(catkin REQUIRED COMPONENTS
   camera_model
 )
 
+set(ENABLE_BACKWARD true)
 set(DARKNET_ROOT $ENV{HOME}/source/darknet)
+
+if(ENABLE_BACKWARD)
+    add_definitions(-D USE_BACKWARD)
+endif()
 
 catkin_package(
  INCLUDE_DIRS include
@@ -41,3 +46,9 @@ ${OpenCV_LIBS}
 camera_model
 darknet
 )
+
+if (ENABLE_BACKWARD) 
+target_link_libraries(${PROJECT_NAME}
+dw
+)
+endif()

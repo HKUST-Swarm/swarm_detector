@@ -41,7 +41,7 @@ public:
             ->generateCameraFromYamlFile(camera_config_file);
 
         undistMaps = generateAllUndistMap(cam, cameraRotation, imgWidth, fov);
-        // ROS_INFO("undismap size %ld", undistMaps.size());
+        ROS_INFO("undismap size %ld", undistMaps.size());
         if (enable_cuda) {
             for (auto mat : undistMaps) {
                 cv::Mat xy[2];

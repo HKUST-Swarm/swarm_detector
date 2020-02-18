@@ -8,5 +8,5 @@ public:
 
     }
 
-    std::vector<cv::Rect2d> detect(cv::cuda::GpuMat image);
+    std::vector<cv::Rect2d> detect(cv::Mat & image);
 };

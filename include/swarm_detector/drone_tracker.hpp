@@ -10,6 +10,7 @@ struct TrackedDrone {
     cv::Rect2f bbox;
     Eigen::Vector3d world_p;
     Eigen::Vector3d body_p;
+    Eigen::Vector3d unit_p_body;
 
     TrackedDrone() {
 
@@ -21,7 +22,7 @@ struct TrackedDrone {
 
 
     //This is self camera position and quat
-    void update_position(Eigen::Vector3d Pcam, Eigen::Quaterniond Qcam) {
+    void update_position(Eigen::Vector3d Pcam, Eigen::Matrix3d Qcam) {
         //TODO:
     }
 };
@@ -63,29 +64,30 @@ class DroneTracker {
     bool track_matched_only = false;
 
     Eigen::Vector3d Pcam = Eigen::Vector3d::Zero();
-    Eigen::Quaterniond Qcam = Eigen::Quaterniond::Identity();
+    Eigen::Matrix3d Qcam = Eigen::Matrix3d::Identity();
     Eigen::Vector3d tic;
-    Eigen::Quaterniond ric;
+    Eigen::Matrix3d ric;
 public:
 
-    void update_cam_pose(Eigen::Vector3d Pdrone, Eigen::Quaterniond Qdrone) {
+    void update_cam_pose(Eigen::Vector3d Pdrone, Eigen::Matrix3d Qdrone) {
         this->Pcam = Pdrone + Qdrone * tic;
         this->Qcam = Qdrone * ric;
     }
 
-    DroneTracker(bool _track_matched_only, Eigen::Vector3d _tic, Eigen::Quaterniond _ric):
+    DroneTracker(bool _track_matched_only, Eigen::Vector3d _tic, Eigen::Matrix3d _ric):
         track_matched_only(_track_matched_only), tic(_tic), ric(_ric)
     {
         
     }   
 
     std::vector<TrackedDrone> track(cv::Mat & _img) {
-
+        std::vector<TrackedDrone> ret;
+        return ret;
     }
 
 
 
-    std::vector<TrackedDrone> input_detect(cv::Mat & img, std::vector<cv::Rect2d> detected_drones) {
+    std::vector<TrackedDrone> process_detect(cv::Mat & img, std::vector<cv::Rect2d> detected_drones) {
         std::vector<TrackedDrone> ret;
         for (auto rect: detected_drones) {
             TrackedDrone tracked_drones;
@@ -94,6 +96,7 @@ public:
                 ret.push_back(tracked_drones);
             }
         }
+        return ret;
     }
 
     void start_tracker_tracking(int _id, cv::Mat & frame, cv::Rect2d bbox) {
