@@ -23,8 +23,8 @@ class FisheyeUndist {
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
 public:
-    camera_model::CameraPtr cam_top;
-    camera_model::CameraPtr cam_side;
+    // camera_model::CameraPtr cam_top;
+    // camera_model::CameraPtr cam_side;
     double f_side = 0;
     double f_center = 0;
     double cx_side = 0, cy_side = 0;
@@ -125,15 +125,15 @@ public:
 
         // ROS_INFO("Pinhole cameras focal length: center %f side %f", f_center, f_side);
 
-        cam_top = camera_model::PinholeCameraPtr( new camera_model::PinholeCamera("top",
-                  imgWidth, imgWidth,0, 0, 0, 0,
-                  f_center, f_center, imgWidth/2, imgWidth/2));
+        // cam_top = camera_model::PinholeCameraPtr( new camera_model::PinholeCamera("top",
+                //   imgWidth, imgWidth,0, 0, 0, 0,
+                //   f_center, f_center, imgWidth/2, imgWidth/2));
          
         cx_side = imgWidth/2;
         cy_side = sideImgHeight/2;
-        cam_side = camera_model::PinholeCameraPtr(new camera_model::PinholeCamera("side",
-                  imgWidth, sideImgHeight,0, 0, 0, 0,
-                  f_side, f_side, imgWidth/2, sideImgHeight/2));
+        // cam_side = camera_model::PinholeCameraPtr(new camera_model::PinholeCamera("side",
+                //   imgWidth, sideImgHeight,0, 0, 0, 0,
+                //   f_side, f_side, imgWidth/2, sideImgHeight/2));
 
         maps.push_back(genOneUndistMap(p_cam, t, imgWidth, imgWidth, f_center));
 
