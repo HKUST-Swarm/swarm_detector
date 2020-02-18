@@ -32,13 +32,18 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     int id = 2;
     
     cv::cuda::GpuMat img_cuda = fisheye->undist_id_cuda(cv_ptr->image, id);
-    auto rects = detector->detect(img_cuda);
+    auto drones_detected_yolo = detector->detect(img_cuda);
 
     if (debug_show) {
         cv::Mat img;
         img_cuda.download(img);
         char win_name[100] = {0};
         sprintf(win_name, "Direction %d", id);
+        
+        for (auto ret: drones_detected_yolo) {
+            cv::rectangle(img, ret, cv::Scalar(0, 255, 255));
+        }
+
         cv::imshow(win_name, img);
         cv::waitKey(3);
     }
