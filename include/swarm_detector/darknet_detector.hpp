@@ -4,8 +4,9 @@
 
 class DarknetDetector {
 public:
-    DarknetDetector(std::string weights, std::string cfg) {
-
+    DarknetDetector(std::string weights, std::string cfg, double thres, double overlap_thres) {
+        printf("Loading darknet weights from %s cfg from %s\n", weights.c_str(), cfg.c_str());
+        printf("Yolo Thres %f Overlap %f\n", thres, overlap_thres);
     }
     
     //First is rect

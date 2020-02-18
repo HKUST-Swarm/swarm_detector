@@ -9,13 +9,15 @@
     <remap from="~image_raw" to="$(arg image_topic)"/>    
 
     <param name="cam_file" type ="string" value="$(arg cam_file)"/>
-    <!-- FOV is in degree -->
-    <param name="fov" type="double" value="235"/> 
-    <!-- Image width for center reprojection -->
-    <param name="width" type="int" value="512"/> 
     <param name="weights" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights"/>
     <param name="darknet_cfg" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg"/>    
     <param name="show" type ="bool" value="$(arg show)"/>    
-    <param name="show_width" type ="int" value="1920"/>    
+    <rosparam>
+      thres: 0.2
+      overlap_thres: 0.6
+      fov: 235
+      width: 512
+      show_width: 1920
+    </rosparam>
   </node>
 </launch>

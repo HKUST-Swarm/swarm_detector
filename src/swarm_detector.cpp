@@ -26,6 +26,7 @@ void SwarmDetector::onInit() {
     std::string extrinsic_path;
     bool track_matched_only = false;
     double fov = 235;
+    double thres, overlap_thres;
 
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
@@ -33,6 +34,8 @@ void SwarmDetector::onInit() {
     nh.param<std::string>("darknet_cfg", darknet_cfg, "");
     nh.param<std::string>("cam_file", camera_config_file, "");
     nh.param<double>("fov", fov, 235);
+    nh.param<double>("thres", thres, 0.2);
+    nh.param<double>("overlap_thres", overlap_thres, 0.6);
     nh.param<int>("width", width, 512);
     nh.param<int>("show_width", show_width, 1080);
     nh.param<int>("yolo_height", yolo_height, 288);
@@ -54,7 +57,7 @@ void SwarmDetector::onInit() {
         fsSettings.release();
     }
 
-    detector = new DarknetDetector(darknet_weights_path, darknet_cfg);
+    detector = new DarknetDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres);
     fisheye = new FisheyeUndist(camera_config_file, fov, true, width);
 
     side_height = fisheye->sideImgHeight;
