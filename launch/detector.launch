@@ -1,0 +1,20 @@
+<launch>
+  <arg name="manager"     default="manager"/>
+  <arg name="show" default="false" />
+  <arg name="image_topic" default="/pg_17591763/image_raw" />
+  <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591763_camera_calib.yaml" />
+
+  <!-- <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen" /> -->
+  <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="screen">
+    <remap from="~image_raw" to="$(arg image_topic)"/>    
+
+    <param name="cam_file" type ="string" value="$(arg cam_file)"/>
+    <!-- FOV is in degree -->
+    <param name="fov" type="double" value="235"/> 
+    <!-- Image width for center reprojection -->
+    <param name="width" type="int" value="512"/> 
+    <param name="weights" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights"/>
+    <param name="darknet_cfg" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg"/>    
+    <param name="show" type ="bool" value="$(arg show)"/>    
+  </node>
+</launch>

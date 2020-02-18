@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   camera_model
 )
 
+set(DARKNET_ROOT $ENV{HOME}/source/darknet)
+
 catkin_package(
  INCLUDE_DIRS include
 #  LIBRARIES swarm_detector
@@ -24,7 +26,10 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${DARKNET_ROOT}/include
 )
+
+link_directories(${DARKNET_ROOT})
 
 add_library(${PROJECT_NAME}
   src/swarm_detector.cpp
@@ -34,4 +39,5 @@ add_library(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 
 ${OpenCV_LIBS}
 camera_model
+darknet
 )

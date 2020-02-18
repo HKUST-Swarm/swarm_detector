@@ -33,11 +33,10 @@ public:
     Eigen::Vector3d cameraRotation;
     bool enable_cuda = false;
     int cam_id = 0;
-
     int sideImgHeight = 0;
 
-    FisheyeUndist(const std::string & camera_config_file, int _id, double _fov, bool _enable_cuda = true, int imgWidth = 600):
-    imgWidth(imgWidth), fov(_fov), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda), cam_id(_id) {
+    FisheyeUndist(const std::string & camera_config_file, double _fov, bool _enable_cuda = true, int imgWidth = 600, int _cam_id = 0):
+    imgWidth(imgWidth), fov(_fov), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda), cam_id(_cam_id) {
         cam = camera_model::CameraFactory::instance()
             ->generateCameraFromYamlFile(camera_config_file);
 

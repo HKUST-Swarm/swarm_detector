@@ -1,6 +1,5 @@
-<library path="lib/swarm_detector">
+<library path="lib/libswarm_detector">
     <class name="swarm_detector_pkg/SwarmDetector" type="swarm_detector_pkg::SwarmDetector" base_class_type="nodelet::Nodelet">
-
         <description>
             Nodelet version of swarm detector
         </description>
