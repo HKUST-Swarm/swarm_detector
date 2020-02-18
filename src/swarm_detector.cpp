@@ -34,6 +34,7 @@ void SwarmDetector::onInit() {
     nh.param<std::string>("cam_file", camera_config_file, "");
     nh.param<double>("fov", fov, 235);
     nh.param<int>("width", width, 512);
+    nh.param<int>("show_width", show_width, 1080);
     nh.param<int>("yolo_height", yolo_height, 288);
     nh.param<std::string>("extrinsic_path", extrinsic_path, "");
     
@@ -56,6 +57,7 @@ void SwarmDetector::onInit() {
     detector = new DarknetDetector(darknet_weights_path, darknet_cfg);
     fisheye = new FisheyeUndist(camera_config_file, fov, true, width);
 
+    side_height = fisheye->sideImgHeight;
     for (int i = 0; i < 6; i++) {
         last_detects.push_back(ros::Time::now());
         ROS_INFO("Init tracker on %d with P %f %f %f R", i, Pcam.x(), Pcam.y(), Pcam.z());
@@ -68,14 +70,14 @@ void SwarmDetector::onInit() {
     ROS_INFO("Finish initialize swarm detector, wait for data\n");
 }
 
-void SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direction) {
+std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direction, cv::Mat & debug_img) {
     std::vector<TrackedDrone> tracked_drones;
 
     bool need_detect = false;
     cv::Mat img;
     img_cuda.download(img);
 
-    std::vector<cv::Rect2d> detected_drones;
+    std::vector<std::pair<cv::Rect2d, double>> detected_drones;
     if ((ros::Time::now() - last_detects[direction]).toSec() > detect_duration) {
         need_detect = true;
         last_detects[direction] = ros::Time::now();
@@ -111,17 +113,13 @@ void SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direct
     }
 
     if (debug_show) {
-
-        char win_name[100] = {0};
-        sprintf(win_name, "Direction %d", direction);
-        
+        img.copyTo(debug_img);
         for (auto ret: detected_drones) {
-            cv::rectangle(img, ret, cv::Scalar(0, 255, 255));
+            cv::rectangle(debug_img, ret.first, cv::Scalar(ret.second*100, 255, 255), 3);
         }
-
-        cv::imshow(win_name, img);
-        cv::waitKey(3);
     }
+
+    return tracked_drones;
 }
 
 void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
@@ -130,13 +128,28 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     int id = 2;
     
     // cv::cuda::GpuMat img_cuda = fisheye->undist_id_cuda(cv_ptr->image, id);
-    auto imgs = fisheye->undist_all_cuda(cv_ptr->image);
+    auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true);
 
+    std::vector<cv::Mat> debug_imgs;
+    debug_imgs.resize(5);
     for (int i = 0; i < 6; i++) {
-        ROS_INFO("Using img %d, direction %d", i%5, i);
-        virtual_cam_callback(imgs[i%5], i);
+        // ROS_INFO("Using img %d, direction %d", i%5, i);
+        virtual_cam_callback(imgs[i%5], i, debug_imgs[i%5]);
     }
-    
+
+    if (debug_show) {
+        cv::Mat _show;
+        cv::resize(debug_imgs[0], _show, cv::Size(side_height, side_height));
+        for (int i = 1; i < 5; i ++) {
+            cv::hconcat(_show, debug_imgs[i], _show);
+        }
+
+        double f_resize = ((double)show_width)/(double) _show.cols;
+        cv::resize(_show, _show, cv::Size(), f_resize, f_resize);
+
+        cv::imshow("DroneTracker", _show);
+        cv::waitKey(3);
+    }
 }
 
 

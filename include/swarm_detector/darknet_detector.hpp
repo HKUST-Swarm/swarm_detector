@@ -7,6 +7,8 @@ public:
     DarknetDetector(std::string weights, std::string cfg) {
 
     }
-
-    std::vector<cv::Rect2d> detect(cv::Mat & image);
+    
+    //First is rect
+    //Second is probaility
+    std::vector<std::pair<cv::Rect2d, double>> detect(cv::Mat & image);
 };

@@ -8,6 +8,8 @@
 class FisheyeUndist;
 class DarknetDetector;
 class DroneTracker;
+struct TrackedDrone;
+
 namespace swarm_detector_pkg
 {
 class SwarmDetector : public nodelet::Nodelet
@@ -28,11 +30,13 @@ private:
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
-    virtual void virtual_cam_callback(cv::cuda::GpuMat & img, int direction);
+    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::cuda::GpuMat & img, int direction, cv::Mat & debug_img);
 
     bool debug_show = false;
     int width;
+    int side_height;
     int yolo_height;
+    int show_width;
     double detect_duration = 0.5;
     std::vector<Eigen::Quaterniond> Rvcams;
     Eigen::Quaterniond t_down;

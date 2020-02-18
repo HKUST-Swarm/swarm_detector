@@ -16,5 +16,6 @@
     <param name="weights" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights"/>
     <param name="darknet_cfg" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg"/>    
     <param name="show" type ="bool" value="$(arg show)"/>    
+    <param name="show_width" type ="int" value="1920"/>    
   </node>
 </launch>

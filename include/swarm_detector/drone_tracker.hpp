@@ -12,6 +12,7 @@ struct TrackedDrone {
     Eigen::Vector3d body_p;
     Eigen::Vector3d unit_p_body;
 
+    double probaility = 1.0;
     TrackedDrone() {
 
     }
@@ -38,7 +39,7 @@ class DroneTracker {
         return 0;
     }
 
-    bool update_bbox(cv::Rect2d rect, cv::Mat & frame,  TrackedDrone & drone) {
+    bool update_bbox(cv::Rect2d rect, double p, cv::Mat & frame,  TrackedDrone & drone) {
         int _id = match_id(rect);
 
         if(_id < 0) {
@@ -87,11 +88,11 @@ public:
 
 
 
-    std::vector<TrackedDrone> process_detect(cv::Mat & img, std::vector<cv::Rect2d> detected_drones) {
+    std::vector<TrackedDrone> process_detect(cv::Mat & img, std::vector<std::pair<cv::Rect2d, double>> detected_drones) {
         std::vector<TrackedDrone> ret;
         for (auto rect: detected_drones) {
             TrackedDrone tracked_drones;
-            bool success = update_bbox(rect, img, tracked_drones);
+            bool success = update_bbox(rect.first, rect.second, img, tracked_drones);
             if(success) {
                 ret.push_back(tracked_drones);
             }
