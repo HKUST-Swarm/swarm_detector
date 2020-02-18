@@ -36,7 +36,7 @@ class DroneTracker {
 
     int last_create_id = 100;
     int match_id(cv::Rect2d rect) {
-        return 0;
+        return -1;
     }
 
     bool update_bbox(cv::Rect2d rect, double p, cv::Mat & frame,  TrackedDrone & drone) {
