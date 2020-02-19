@@ -80,7 +80,7 @@ void SwarmDetector::onInit() {
             cam = fisheye->cam_top;
         }
         drone_trackers.push_back(
-            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, drone_scale, p_track, track_matched_only)
+            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, drone_scale, p_track, min_p, track_matched_only)
         );
     }
 
