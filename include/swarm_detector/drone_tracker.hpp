@@ -5,28 +5,45 @@
 #include <eigen3/Eigen/Eigen>
 #include <camera_model/camera_models/PinholeCamera.h>
 
+static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
+
 struct TrackedDrone {
     int _id;
 
     cv::Rect2d bbox;
-    Eigen::Vector3d world_p;
-    Eigen::Vector3d body_p;
     Eigen::Vector3d unit_p_body;
+    Eigen::Vector3d unit_p_body_yaw_only;
     double probaility = 1.0;
-    TrackedDrone() {
+    double scale = 0;
+    Eigen::Vector2d center;
+    TrackedDrone() {}
 
-    }
-
-    TrackedDrone(int id): _id(id) {
-
+    TrackedDrone(int id, cv::Rect2d _rect, double _scale, double _p):
+        _id(id), bbox(_rect), scale(_scale), probaility(_p), center(_rect.x + _rect.width/2.0, _rect.y + _rect.height/2.0)
+    {
     }
 
 
     //This is self camera position and quat
-    void update_position(Eigen::Vector3d Pcam, Eigen::Matrix3d Qcam, camera_model::CameraPtr cam, double drone_scale) {
-        //TODO:
+    void update_position(
+        Eigen::Vector3d tic, Eigen::Matrix3d ric, 
+        Eigen::Vector3d Pdrone, Eigen::Matrix3d Rdrone,
+        camera_model::CameraPtr cam) {
+        auto ypr = R2ypr(Rdrone, false);
+        double yaw = ypr.x();
+        Eigen::Vector3d p3d;
+        cam->liftProjective(center, p3d);
+        unit_p_body = ric * p3d;
+        unit_p_body.normalize();
+
+        //No scale so assume camera is on CG
+        unit_p_body_yaw_only = Rdrone*unit_p_body;
+        unit_p_body_yaw_only = Eigen::AngleAxisd(-yaw, Eigen::Vector3d::UnitZ()) * unit_p_body_yaw_only;
+        unit_p_body_yaw_only.normalize();
     }
 };
+
+
 
 class DroneTracker {
 
@@ -57,10 +74,10 @@ class DroneTracker {
         start_tracker_tracking(_id, frame, rect);
 
         ROS_INFO("New detected drone: %d", _id);
-        drone = TrackedDrone(_id);
-        drone.bbox = rect;
-        drone.probaility = p;
-        drone.update_position(Pcam, Qcam, cam, drone_scale);
+
+        //Simple use width as scale
+        drone = TrackedDrone(_id, rect, rect.width, p);
+        drone.update_position(tic, ric, Pdrone, Rdrone, cam);
 
         tracking_drones[_id] = drone;
         return true;
@@ -68,8 +85,8 @@ class DroneTracker {
 
     bool track_matched_only = false;
 
-    Eigen::Vector3d Pcam = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d Qcam = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d Pdrone = Eigen::Vector3d::Zero();
+    Eigen::Matrix3d Rdrone = Eigen::Matrix3d::Identity();
     Eigen::Vector3d tic;
     Eigen::Matrix3d ric;
     double drone_scale;
@@ -77,9 +94,9 @@ class DroneTracker {
 
 public:
 
-    void update_cam_pose(Eigen::Vector3d Pdrone, Eigen::Matrix3d Qdrone) {
-        this->Pcam = Pdrone + Qdrone * tic;
-        this->Qcam = Qdrone * ric;
+    void update_cam_pose(Eigen::Vector3d _Pdrone, Eigen::Matrix3d _Rdrone) {
+        Pdrone = _Pdrone;
+        Rdrone = _Rdrone;
     }
 
     DroneTracker(Eigen::Vector3d _tic, Eigen::Matrix3d _ric, camera_model::CameraPtr _cam, 
@@ -99,12 +116,10 @@ public:
             if (success) {
                 assert(tracking_drones.find(_id)!=tracking_drones.end() && "Tracker not found in tracked drones!");
                 auto old_tracked = tracking_drones[_id];
-                TrackedDrone TDrone(_id);
-                TDrone.bbox = rect;
-                TDrone.probaility = old_tracked.probaility*p_track;
+                TrackedDrone TDrone(_id, rect, rect.width, old_tracked.probaility*p_track);
 
                 if (TDrone.probaility > min_p) {
-                    TDrone.update_position(Pcam, Qcam, cam, drone_scale);
+                    TDrone.update_position(tic, ric, Pdrone, Rdrone, cam);
                     ret.push_back(TDrone);
                     tracking_drones[_id] = TDrone;
                 } else {
@@ -151,3 +166,25 @@ public:
     }
 
 };
+
+static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress)
+{
+    Eigen::Vector3d n = R.col(0);
+    Eigen::Vector3d o = R.col(1);
+    Eigen::Vector3d a = R.col(2);
+
+    Eigen::Vector3d ypr(3);
+    double y = atan2(n(1), n(0));
+    double p = atan2(-n(2), n(0) * cos(y) + n(1) * sin(y));
+    double r = atan2(a(0) * sin(y) - a(1) * cos(y), -o(0) * sin(y) + o(1) * cos(y));
+    ypr(0) = y;
+    ypr(1) = p;
+    ypr(2) = r;
+
+    if (degress) {
+        return ypr / M_PI * 180.0;
+    } else {
+        return ypr;
+    }
+
+}
