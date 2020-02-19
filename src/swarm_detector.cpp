@@ -69,8 +69,12 @@ void SwarmDetector::onInit() {
         last_detects.push_back(ros::Time::now());
         ROS_INFO("Init tracker on %d with P %f %f %f R", i, Pcam.x(), Pcam.y(), Pcam.z());
         std::cout << Rcam*Rvcams[i] << std::endl;
+        camera_model::CameraPtr cam = fisheye->cam_side;
+        if (i%5 == 0) {
+            cam = fisheye->cam_top;
+        }
         drone_trackers.push_back(
-            new DroneTracker(track_matched_only, Pcam, Rcam*Rvcams[i])
+            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, track_matched_only)
         );
     }
 
@@ -196,8 +200,6 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     if (min_dt > 0.01) {
         ROS_WARN("Pose %3.1f dt is too big!", min_dt * 1000);
     }
-
-    
 
     std::vector<cv::Mat> debug_imgs;
     debug_imgs.resize(5);

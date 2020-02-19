@@ -3,6 +3,7 @@
 #include <opencv2/tracking.hpp>
 #include <map>
 #include <eigen3/Eigen/Eigen>
+#include <camera_model/camera_models/PinholeCamera.h>
 
 struct TrackedDrone {
     int _id;
@@ -11,7 +12,6 @@ struct TrackedDrone {
     Eigen::Vector3d world_p;
     Eigen::Vector3d body_p;
     Eigen::Vector3d unit_p_body;
-
     double probaility = 1.0;
     TrackedDrone() {
 
@@ -31,6 +31,7 @@ struct TrackedDrone {
 class DroneTracker {
 
     std::map<int, cv::Ptr<cv::TrackerMOSSE>> trackers;
+    camera_model::CameraPtr cam; 
 
     std::vector<TrackedDrone> tracking_drones;
 
@@ -75,8 +76,8 @@ public:
         this->Qcam = Qdrone * ric;
     }
 
-    DroneTracker(bool _track_matched_only, Eigen::Vector3d _tic, Eigen::Matrix3d _ric):
-        track_matched_only(_track_matched_only), tic(_tic), ric(_ric)
+    DroneTracker(Eigen::Vector3d _tic, Eigen::Matrix3d _ric, camera_model::CameraPtr _cam, bool _track_matched_only):
+        tic(_tic), ric(_ric), cam(_cam), track_matched_only(_track_matched_only)
     {
         
     }   
