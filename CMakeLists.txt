@@ -14,6 +14,10 @@ find_package(catkin REQUIRED COMPONENTS
   camera_model
 )
 
+
+SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
+find_package(OpenCV 3.4 REQUIRED)
+
 set(ENABLE_BACKWARD true)
 set(DARKNET_ROOT $ENV{HOME}/source/darknet)
 
