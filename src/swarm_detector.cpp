@@ -87,6 +87,14 @@ void SwarmDetector::onInit() {
     ROS_INFO("Finish initialize swarm detector, wait for data\n");
 }
 
+
+cv::Scalar ScalarHSV2BGR(uchar H, uchar S, uchar V) {
+    cv::Mat rgb;
+    cv::Mat hsv(1, 1, CV_8UC3, cv::Scalar(H,S,V));
+    cv::cvtColor(hsv, rgb, cv::COLOR_HSV2BGR);
+    return cv::Scalar(rgb.data[0], rgb.data[1], rgb.data[2]);
+}
+
 std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direction, EigenPoseStamped pose_stamped, cv::Mat & debug_img) {
     std::vector<TrackedDrone> tracked_drones;
 
@@ -149,19 +157,19 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat &
         for (auto ret: tracked_drones) {
             // ROS_INFO("Tracked drone ID %d@%d", ret._id, direction);
             // std::cout << ret.bbox << std::endl;
-            cv::rectangle(debug_img, ret.bbox, cv::Scalar(255, 255, 0), 3);
+            cv::rectangle(debug_img, ret.bbox, ScalarHSV2BGR(ret.probaility*128, 255, 255), 3);
             sprintf(idtext, "[%d](%3.1f\%)", ret._id, ret.probaility*100);
             cv::Point2f pos(ret.bbox.x, ret.bbox.y - 10);
-	        cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 3);
+	        cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 0, 255), 2);
         }
 
+        /*
         for (auto ret: detected_drones) {
             cv::Point2f pos(ret.first.x+ret.first.width - 5, ret.first.y - 10);
             sprintf(idtext, "(%3.1f\%)", ret.second*100);
-
-	        cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 3);
+	        cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 0, 255), 2);
             cv::rectangle(debug_img, ret.first, cv::Scalar(ret.second*255, 10, 10), 3);
-        }
+        }*/
 
     }
 

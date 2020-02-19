@@ -18,9 +18,9 @@
       fov: 235
       width: 512
       show_width: 1920
-      detect_duration: 5.0
+      detect_duration: 1.0
       p_track: 0.95
-      min_p: -1
+      min_p: 0.1
       drone_scale: 0.6
     </rosparam>
   </node>
