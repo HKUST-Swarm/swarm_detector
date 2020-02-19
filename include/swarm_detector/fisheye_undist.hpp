@@ -24,8 +24,8 @@ class FisheyeUndist {
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
 public:
-    camera_model::CameraPtr cam_top;
-    camera_model::CameraPtr cam_side;
+    camera_model::PinholeCameraPtr cam_top;
+    camera_model::PinholeCameraPtr cam_side;
     double f_side = 0;
     double f_center = 0;
     double cx_side = 0, cy_side = 0;

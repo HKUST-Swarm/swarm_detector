@@ -22,6 +22,8 @@
       p_track: 0.95
       min_p: 0.1
       drone_scale: 0.6
+      acpt_direction_thres: 10
+      acpt_inv_dep_thres: 15
     </rosparam>
   </node>
 </launch>

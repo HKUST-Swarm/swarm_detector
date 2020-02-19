@@ -37,6 +37,8 @@ void SwarmDetector::onInit() {
     double drone_scale;
     double p_track;
     double min_p;
+    double acpt_direction_thres;
+    double acpt_inv_dep_thres;
 
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
@@ -54,6 +56,11 @@ void SwarmDetector::onInit() {
     nh.param<double>("drone_scale", drone_scale, 0.6);
     nh.param<double>("p_track", p_track, 0.95);
     nh.param<double>("min_p", min_p, -1);
+
+    //Is in degree
+    nh.param<double>("acpt_direction_thres", acpt_direction_thres, 10);
+    //Is in pixels
+    nh.param<double>("acpt_inv_dep_thres", acpt_inv_dep_thres, 10);
     
     cv::Mat R, T;
 
@@ -79,12 +86,13 @@ void SwarmDetector::onInit() {
         last_detects.push_back(ros::Time(0));
         ROS_INFO("Init tracker on %d with P %f %f %f R", i, Pcam.x(), Pcam.y(), Pcam.z());
         std::cout << Rcam*Rvcams[i] << std::endl;
-        camera_model::CameraPtr cam = fisheye->cam_side;
+        camera_model::PinholeCameraPtr cam = fisheye->cam_side;
         if (i%5 == 0) {
             cam = fisheye->cam_top;
         }
         drone_trackers.push_back(
-            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, drone_scale, p_track, min_p, track_matched_only)
+            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, drone_scale, p_track, min_p, 
+                acpt_direction_thres, acpt_inv_dep_thres, track_matched_only)
         );
     }
 
