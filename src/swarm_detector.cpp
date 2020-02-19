@@ -225,6 +225,7 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
         nd.remote_drone_id = tdrone._id;
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
+        nd.inv_dep = tdrone.inv_dep;
 
         detected_nodes.push_back(nd);
     }
