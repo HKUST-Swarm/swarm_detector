@@ -4,11 +4,16 @@
 #include <pluginlib/class_list_macros.h>
 #include <eigen3/Eigen/Eigen>
 #include <opencv2/cudawarping.hpp>
+#include <queue>
+#include <tuple>
+#include <nav_msgs/Odometry.h>
 
 class FisheyeUndist;
 class DarknetDetector;
 class DroneTracker;
 struct TrackedDrone;
+
+typedef std::tuple<ros::Time, Eigen::Quaterniond, Eigen::Vector3d> EigenPoseStamped;
 
 namespace swarm_detector_pkg
 {
@@ -30,8 +35,8 @@ private:
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
-    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::cuda::GpuMat & img, int direction, cv::Mat & debug_img);
-
+    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::cuda::GpuMat & img, int direction, EigenPoseStamped pose_stamped, cv::Mat & debug_img);
+    virtual void odometry_callback(const nav_msgs::Odometry & odom);
     bool debug_show = false;
     int width;
     int side_height;
@@ -43,6 +48,8 @@ private:
 
     std::vector<DroneTracker*> drone_trackers;
     std::vector<ros::Time> last_detects;
+
+    std::queue<std::tuple<ros::Time, Eigen::Quaterniond, Eigen::Vector3d>> pose_buf;
 
     Eigen::Vector3d Pcam = Eigen::Vector3d::Zero();
     Eigen::Matrix3d Rcam = Eigen::Matrix3d::Identity();

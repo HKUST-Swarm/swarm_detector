@@ -3,6 +3,7 @@
 #include "swarm_detector/darknet_detector.hpp"
 #include "swarm_detector/drone_tracker.hpp"
 #include <opencv2/core/eigen.hpp>
+#include <nav_msgs/Odometry.h>
 
 #ifdef USE_BACKWARD
 #define BACKWARD_HAS_DW 1
@@ -12,6 +13,8 @@ namespace backward
     backward::SignalHandling sh;
 }
 #endif
+
+#define WARN_DT 0.005
 
 namespace swarm_detector_pkg
 {
@@ -40,11 +43,12 @@ void SwarmDetector::onInit() {
     nh.param<int>("show_width", show_width, 1080);
     nh.param<int>("yolo_height", yolo_height, 288);
     nh.param<std::string>("extrinsic_path", extrinsic_path, "");
+    nh.param<double>("detect_duration", detect_duration, 0.0);
     
     cv::Mat R, T;
 
     
-    FILE *fh = fopen(extrinsic_path.c_str(),"r");
+    FILE *fh = fopen(extrinsic_path.c_str(), "r");
     if(fh == NULL){
         ROS_WARN("config_file dosen't exist; Assume identity camera pose");
     } else {
@@ -73,7 +77,7 @@ void SwarmDetector::onInit() {
     ROS_INFO("Finish initialize swarm detector, wait for data\n");
 }
 
-std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direction, cv::Mat & debug_img) {
+std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direction, EigenPoseStamped pose_stamped, cv::Mat & debug_img) {
     std::vector<TrackedDrone> tracked_drones;
 
     bool need_detect = false;
@@ -85,21 +89,31 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat &
         need_detect = true;
         last_detects[direction] = ros::Time::now();
     }
+
+    drone_trackers[direction]->update_cam_pose(std::get<2>(pose_stamped), std::get<1>(pose_stamped).toRotationMatrix());
     
     if (need_detect) {
         //Detect and update to tracker
         cv::Rect roi(0, 0, img.cols, img.rows);
         if (direction ==0 || direction == 5) {
             //If top, detect half plane and track whole
+            double offset = -1;
             if (direction == 0) {
+                ROS_INFO("Top Upper");
                 roi = cv::Rect(0, 0, img.cols, yolo_height);
             } else if(direction == 5) {
                 roi = cv::Rect(0, img.rows - yolo_height, img.cols, yolo_height);
+                offset = img.rows - yolo_height;
             }
 
             cv::Mat img_roi = img(roi);
             detected_drones = detector->detect(img_roi);
-
+            
+            if (offset > 0) {
+                for (auto & rect: detected_drones) {
+                    rect.first.y = rect.first.y + offset;
+                }
+            }
             // if (debug_show) {
             //     char win_name[10] = {0};
             //     sprintf(win_name, "ROI %d", direction);
@@ -116,13 +130,34 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat &
     }
 
     if (debug_show) {
-        img.copyTo(debug_img);
+        if (debug_img.empty()) {
+            img.copyTo(debug_img);
+        }
+
         for (auto ret: detected_drones) {
             cv::rectangle(debug_img, ret.first, cv::Scalar(ret.second*100, 255, 255), 3);
         }
     }
 
     return tracked_drones;
+}
+
+void SwarmDetector::odometry_callback(const nav_msgs::Odometry & odom) {
+    // make_tuple()
+    Eigen::Quaterniond quat(
+        odom.pose.pose.orientation.w, 
+        odom.pose.pose.orientation.x, 
+        odom.pose.pose.orientation.y, 
+        odom.pose.pose.orientation.z 
+    );
+
+    Eigen::Vector3d pos(odom.pose.pose.position.x, 
+        odom.pose.pose.position.y, 
+        odom.pose.pose.position.z
+    );
+
+    auto tup = std::make_tuple(odom.header.stamp, quat, pos);
+    pose_buf.push(tup);
 }
 
 void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
@@ -133,11 +168,42 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     // cv::cuda::GpuMat img_cuda = fisheye->undist_id_cuda(cv_ptr->image, id);
     auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true);
 
+    double min_dt = 10000;
+    Eigen::Vector3d Pdrone = Eigen::Vector3d::Zero();
+    Eigen::Quaterniond Qdrone = Eigen::Quaterniond::Identity();
+    while(pose_buf.size() > 0) {
+        double dt = (std::get<0>(pose_buf.front()) - msg->header.stamp).toSec();
+        if (dt < 0) {
+            //Pose in buffer is older
+            if (fabs(dt) < min_dt) {
+                Pdrone = std::get<2>(pose_buf.front());
+                Qdrone = std::get<1>(pose_buf.front());
+            }
+        }
+
+        if (dt > 0) {
+            //pose in buffer is newer
+            if (fabs(dt) < min_dt) {
+                Pdrone = std::get<2>(pose_buf.front());
+                Qdrone = std::get<1>(pose_buf.front());
+            }
+            break;
+        }
+
+        pose_buf.pop();
+    }
+
+    if (min_dt > 0.01) {
+        ROS_WARN("Pose %3.1f dt is too big!", min_dt * 1000);
+    }
+
+    
+
     std::vector<cv::Mat> debug_imgs;
     debug_imgs.resize(5);
     for (int i = 0; i < 6; i++) {
         // ROS_INFO("Using img %d, direction %d", i%5, i);
-        virtual_cam_callback(imgs[i%5], i, debug_imgs[i%5]);
+        virtual_cam_callback(imgs[i%5], i, std::make_tuple(msg->header.stamp, Qdrone, Pdrone), debug_imgs[i%5]);
     }
 
     if (debug_show) {
