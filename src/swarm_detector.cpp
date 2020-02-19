@@ -4,7 +4,10 @@
 #include "swarm_detector/drone_tracker.hpp"
 #include <opencv2/core/eigen.hpp>
 #include <nav_msgs/Odometry.h>
+#include <swarm_msgs/swarm_detected.h>
+#include <swarm_msgs/node_detected_xyzyaw.h>
 
+using namespace swarm_msgs;
 #ifdef USE_BACKWARD
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>
@@ -22,6 +25,7 @@ namespace swarm_detector_pkg
 void SwarmDetector::onInit() {
     ros::NodeHandle nh = this->getPrivateNodeHandle();
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
+    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("swarm_detected", 3);
 
     std::string darknet_weights_path;
     std::string darknet_cfg;
@@ -194,6 +198,32 @@ void SwarmDetector::odometry_callback(const nav_msgs::Odometry & odom) {
     pose_buf.push(tup);
 }
 
+
+void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones) {
+    swarm_detected sd;
+    sd.header.stamp = stamp;
+    sd.self_drone_id = -1;
+    sd.is_6d_detect = false;
+    auto & detected_nodes = sd.detected_nodes_xyz_yaw;
+    for(TrackedDrone & tdrone : drones) {
+        node_detected_xyzyaw nd;
+        nd.dpos.x = tdrone.unit_p_body_yaw_only.x();
+        nd.dpos.y = tdrone.unit_p_body_yaw_only.y();
+        nd.dpos.z = tdrone.unit_p_body_yaw_only.z();
+
+        nd.is_2d_detect = true;
+        nd.is_yaw_valid = false;
+        nd.self_drone_id = -1;
+        nd.remote_drone_id = tdrone._id;
+        nd.header.stamp = stamp;
+        nd.probaility = tdrone.probaility;
+
+        detected_nodes.push_back(nd);
+    }
+
+    swarm_detected_pub.publish(sd);
+}
+
 void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg);
     
@@ -233,11 +263,16 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
 
     std::vector<cv::Mat> debug_imgs;
     debug_imgs.resize(5);
+
+    std::vector<TrackedDrone> track_drones;
     for (int i = 0; i < 6; i++) {
         // ROS_INFO("Using img %d, direction %d", i%5, i);
-        virtual_cam_callback(imgs[i%5], i, std::make_tuple(msg->header.stamp, Qdrone, Pdrone), debug_imgs[i%5]);
+        auto ret = virtual_cam_callback(imgs[i%5], i, std::make_tuple(msg->header.stamp, Qdrone, Pdrone), debug_imgs[i%5]);
+        track_drones.insert(track_drones.end(), ret.begin(), ret.end());
     }
 
+
+    publish_tracked_drones(msg->header.stamp, track_drones);
     if (debug_show) {
         cv::Mat _show;
         cv::resize(debug_imgs[0], _show, cv::Size(side_height, side_height));

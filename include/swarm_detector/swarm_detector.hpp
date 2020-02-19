@@ -34,9 +34,11 @@ private:
     DarknetDetector * detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
+    ros::Publisher swarm_detected_pub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
     virtual std::vector<TrackedDrone> virtual_cam_callback(cv::cuda::GpuMat & img, int direction, EigenPoseStamped pose_stamped, cv::Mat & debug_img);
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
+    virtual void publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones);
     bool debug_show = false;
     int width;
     int side_height;
