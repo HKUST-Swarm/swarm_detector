@@ -31,6 +31,8 @@ void SwarmDetector::onInit() {
     double fov = 235;
     double thres, overlap_thres;
     double drone_scale;
+    double p_track;
+    double min_p;
 
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
@@ -46,6 +48,8 @@ void SwarmDetector::onInit() {
     nh.param<std::string>("extrinsic_path", extrinsic_path, "");
     nh.param<double>("detect_duration", detect_duration, 0.0);
     nh.param<double>("drone_scale", drone_scale, 0.6);
+    nh.param<double>("p_track", p_track, 0.95);
+    nh.param<double>("min_p", min_p, -1);
     
     cv::Mat R, T;
 
@@ -76,7 +80,7 @@ void SwarmDetector::onInit() {
             cam = fisheye->cam_top;
         }
         drone_trackers.push_back(
-            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, drone_scale, track_matched_only)
+            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, drone_scale, p_track, track_matched_only)
         );
     }
 
@@ -140,16 +144,24 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat &
             img.copyTo(debug_img);
         }
 
-        for (auto ret: detected_drones) {
-            cv::rectangle(debug_img, ret.first, cv::Scalar(ret.second*100, 255, 255), 3);
-        }
+        char idtext[20] = {0};
 
         for (auto ret: tracked_drones) {
-            ROS_INFO("Tracked drone ID %d@%d", ret._id, direction);
-            std::cout << ret.bbox << std::endl;
-            cv::rectangle(debug_img, ret.bbox, cv::Scalar(ret.probaility*100, 255, 0), 3);
+            // ROS_INFO("Tracked drone ID %d@%d", ret._id, direction);
+            // std::cout << ret.bbox << std::endl;
+            cv::rectangle(debug_img, ret.bbox, cv::Scalar(255, 255, 0), 3);
+            sprintf(idtext, "[%d](%3.1f\%)", ret._id, ret.probaility*100);
+            cv::Point2f pos(ret.bbox.x, ret.bbox.y - 10);
+	        cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 3);
         }
 
+        for (auto ret: detected_drones) {
+            cv::Point2f pos(ret.first.x+ret.first.width - 5, ret.first.y - 10);
+            sprintf(idtext, "(%3.1f\%)", ret.second*100);
+
+	        cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 3);
+            cv::rectangle(debug_img, ret.first, cv::Scalar(ret.second*255, 10, 10), 3);
+        }
 
     }
 

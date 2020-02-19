@@ -5,10 +5,6 @@
 #include <eigen3/Eigen/Eigen>
 #include <camera_model/camera_models/PinholeCamera.h>
 
-
-//Drone scale in meter
-#define DRONE_SCALE 0.6
-
 struct TrackedDrone {
     int _id;
 
@@ -37,9 +33,10 @@ class DroneTracker {
     std::map<int, cv::Ptr<cv::Tracker>> trackers;
     camera_model::CameraPtr cam; 
 
-    std::vector<TrackedDrone> tracking_drones;
+    std::map<int, TrackedDrone> tracking_drones;
 
-    int last_create_id = 100;
+    int last_create_id = rand()%1000*100;
+    double p_track;
     int match_id(cv::Rect2d rect) {
         return -1;
     }
@@ -65,7 +62,7 @@ class DroneTracker {
         drone.probaility = p;
         drone.update_position(Pcam, Qcam, cam, drone_scale);
 
-        
+        tracking_drones[_id] = drone;
         return true;
     }
 
@@ -76,6 +73,7 @@ class DroneTracker {
     Eigen::Vector3d tic;
     Eigen::Matrix3d ric;
     double drone_scale;
+    double min_p;
 
 public:
 
@@ -84,8 +82,9 @@ public:
         this->Qcam = Qdrone * ric;
     }
 
-    DroneTracker(Eigen::Vector3d _tic, Eigen::Matrix3d _ric, camera_model::CameraPtr _cam, double _drone_scale, bool _track_matched_only):
-        tic(_tic), ric(_ric), cam(_cam), drone_scale(_drone_scale),track_matched_only(_track_matched_only)
+    DroneTracker(Eigen::Vector3d _tic, Eigen::Matrix3d _ric, camera_model::CameraPtr _cam, 
+        double _drone_scale, double _p_track, double _min_p, bool _track_matched_only):
+        tic(_tic), ric(_ric), cam(_cam), drone_scale(_drone_scale), p_track(_p_track), min_p(_min_p), track_matched_only(_track_matched_only)
     {
         
     }   
@@ -98,11 +97,19 @@ public:
             int _id = it.first;
             bool success = it.second->update(_img, rect);
             if (success) {
+                assert(tracking_drones.find(_id)!=tracking_drones.end() && "Tracker not found in tracked drones!");
+                auto old_tracked = tracking_drones[_id];
                 TrackedDrone TDrone(_id);
                 TDrone.bbox = rect;
-                TDrone.probaility = 1.0;
-                TDrone.update_position(Pcam, Qcam, cam, drone_scale);
-                ret.push_back(TDrone);
+                TDrone.probaility = old_tracked.probaility*p_track;
+
+                if (TDrone.probaility > min_p) {
+                    TDrone.update_position(Pcam, Qcam, cam, drone_scale);
+                    ret.push_back(TDrone);
+                    tracking_drones[_id] = TDrone;
+                } else {
+                    failed_id.push_back(_id);
+                }
             } else {
                 failed_id.push_back(_id);
             }
@@ -111,6 +118,7 @@ public:
         for (auto _id : failed_id) {
             ROS_INFO("Remove tracker of drone %d", _id);
             trackers.erase(_id);
+            tracking_drones.erase(_id);
         }
 
         return ret;
