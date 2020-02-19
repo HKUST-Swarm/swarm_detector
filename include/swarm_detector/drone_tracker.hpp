@@ -5,10 +5,14 @@
 #include <eigen3/Eigen/Eigen>
 #include <camera_model/camera_models/PinholeCamera.h>
 
+
+//Drone scale in meter
+#define DRONE_SCALE 0.6
+
 struct TrackedDrone {
     int _id;
 
-    cv::Rect2f bbox;
+    cv::Rect2d bbox;
     Eigen::Vector3d world_p;
     Eigen::Vector3d body_p;
     Eigen::Vector3d unit_p_body;
@@ -23,7 +27,7 @@ struct TrackedDrone {
 
 
     //This is self camera position and quat
-    void update_position(Eigen::Vector3d Pcam, Eigen::Matrix3d Qcam) {
+    void update_position(Eigen::Vector3d Pcam, Eigen::Matrix3d Qcam, camera_model::CameraPtr cam, double drone_scale) {
         //TODO:
     }
 };
@@ -46,18 +50,20 @@ class DroneTracker {
         if(_id < 0) {
             if(track_matched_only) {
                 return false;
-            }
-        } else {
+            } else {
             //Gives a random id
-            last_create_id ++;
-            _id = last_create_id;
+               last_create_id ++;
+                _id = last_create_id;
+            }
         }
 
         start_tracker_tracking(_id, frame, rect);
 
+        ROS_INFO("New detected drone: %d", _id);
         drone = TrackedDrone(_id);
         drone.bbox = rect;
-        drone.update_position(Pcam, Qcam);
+        drone.probaility = p;
+        drone.update_position(Pcam, Qcam, cam, drone_scale);
 
         
         return true;
@@ -69,6 +75,8 @@ class DroneTracker {
     Eigen::Matrix3d Qcam = Eigen::Matrix3d::Identity();
     Eigen::Vector3d tic;
     Eigen::Matrix3d ric;
+    double drone_scale;
+
 public:
 
     void update_cam_pose(Eigen::Vector3d Pdrone, Eigen::Matrix3d Qdrone) {
@@ -76,14 +84,35 @@ public:
         this->Qcam = Qdrone * ric;
     }
 
-    DroneTracker(Eigen::Vector3d _tic, Eigen::Matrix3d _ric, camera_model::CameraPtr _cam, bool _track_matched_only):
-        tic(_tic), ric(_ric), cam(_cam), track_matched_only(_track_matched_only)
+    DroneTracker(Eigen::Vector3d _tic, Eigen::Matrix3d _ric, camera_model::CameraPtr _cam, double _drone_scale, bool _track_matched_only):
+        tic(_tic), ric(_ric), cam(_cam), drone_scale(_drone_scale),track_matched_only(_track_matched_only)
     {
         
     }   
 
     std::vector<TrackedDrone> track(cv::Mat & _img) {
         std::vector<TrackedDrone> ret;
+        std::vector<int> failed_id;
+        for (auto & it : trackers) {
+            cv::Rect2d rect;
+            int _id = it.first;
+            bool success = it.second->update(_img, rect);
+            if (success) {
+                TrackedDrone TDrone(_id);
+                TDrone.bbox = rect;
+                TDrone.probaility = 1.0;
+                TDrone.update_position(Pcam, Qcam, cam, drone_scale);
+                ret.push_back(TDrone);
+            } else {
+                failed_id.push_back(_id);
+            }
+        }
+
+        for (auto _id : failed_id) {
+            ROS_INFO("Remove tracker of drone %d", _id);
+            trackers.erase(_id);
+        }
+
         return ret;
     }
 
@@ -91,6 +120,8 @@ public:
 
     std::vector<TrackedDrone> process_detect(cv::Mat & img, std::vector<std::pair<cv::Rect2d, double>> detected_drones) {
         std::vector<TrackedDrone> ret;
+
+        std::vector<TrackedDrone> new_tracked = track(img);
         for (auto rect: detected_drones) {
             TrackedDrone tracked_drones;
             bool success = update_bbox(rect.first, rect.second, img, tracked_drones);

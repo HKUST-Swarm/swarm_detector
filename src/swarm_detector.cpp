@@ -30,6 +30,7 @@ void SwarmDetector::onInit() {
     bool track_matched_only = false;
     double fov = 235;
     double thres, overlap_thres;
+    double drone_scale;
 
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
@@ -44,6 +45,7 @@ void SwarmDetector::onInit() {
     nh.param<int>("yolo_height", yolo_height, 288);
     nh.param<std::string>("extrinsic_path", extrinsic_path, "");
     nh.param<double>("detect_duration", detect_duration, 0.0);
+    nh.param<double>("drone_scale", drone_scale, 0.6);
     
     cv::Mat R, T;
 
@@ -66,7 +68,7 @@ void SwarmDetector::onInit() {
 
     side_height = fisheye->sideImgHeight;
     for (int i = 0; i < 6; i++) {
-        last_detects.push_back(ros::Time::now());
+        last_detects.push_back(ros::Time(0));
         ROS_INFO("Init tracker on %d with P %f %f %f R", i, Pcam.x(), Pcam.y(), Pcam.z());
         std::cout << Rcam*Rvcams[i] << std::endl;
         camera_model::CameraPtr cam = fisheye->cam_side;
@@ -74,7 +76,7 @@ void SwarmDetector::onInit() {
             cam = fisheye->cam_top;
         }
         drone_trackers.push_back(
-            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, track_matched_only)
+            new DroneTracker(Pcam, Rcam*Rvcams[i], cam, drone_scale, track_matched_only)
         );
     }
 
@@ -141,6 +143,14 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat &
         for (auto ret: detected_drones) {
             cv::rectangle(debug_img, ret.first, cv::Scalar(ret.second*100, 255, 255), 3);
         }
+
+        for (auto ret: tracked_drones) {
+            ROS_INFO("Tracked drone ID %d@%d", ret._id, direction);
+            std::cout << ret.bbox << std::endl;
+            cv::rectangle(debug_img, ret.bbox, cv::Scalar(ret.probaility*100, 255, 0), 3);
+        }
+
+
     }
 
     return tracked_drones;
