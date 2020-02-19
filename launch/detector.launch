@@ -18,7 +18,7 @@
       fov: 235
       width: 512
       show_width: 1920
-      detect_duration: 0.1
+      detect_duration: 5.0
     </rosparam>
   </node>
 </launch>

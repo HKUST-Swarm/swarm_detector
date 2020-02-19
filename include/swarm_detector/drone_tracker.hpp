@@ -34,7 +34,7 @@ struct TrackedDrone {
 
 class DroneTracker {
 
-    std::map<int, cv::Ptr<cv::TrackerMOSSE>> trackers;
+    std::map<int, cv::Ptr<cv::Tracker>> trackers;
     camera_model::CameraPtr cam; 
 
     std::vector<TrackedDrone> tracking_drones;
@@ -136,7 +136,8 @@ public:
         if (trackers.find(_id) != trackers.end()) {
             trackers.erase(_id);
         }
-        cv::Ptr<cv::TrackerMOSSE> tracker = cv ::TrackerMOSSE::create();
+        // cv::Ptr<cv::TrackerMOSSE> tracker = cv ::TrackerMOSSE::create();
+        auto tracker = cv::TrackerMedianFlow::create();
         tracker->init(frame, bbox);
         trackers[_id] = tracker;
     }
