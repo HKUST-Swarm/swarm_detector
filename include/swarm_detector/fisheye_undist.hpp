@@ -62,7 +62,7 @@ public:
         return output;
     }
 
-    std::vector<cv::cuda::GpuMat> undist_all_cuda(const cv::Mat & image, bool use_rgb = false) {
+    std::vector<cv::cuda::GpuMat> undist_all_cuda(const cv::Mat & image, bool use_rgb = false, bool enable_rear = true) {
         cv::cuda::GpuMat img_cuda;
         if (use_rgb) {
             img_cuda.upload(image);
@@ -73,12 +73,22 @@ public:
         }
 
         std::vector<cv::cuda::GpuMat> ret;
-        for (unsigned int i = 0; i < undistMaps.size(); i++) {
-            cv::cuda::GpuMat output;
-            cv::cuda::remap(img_cuda, output, undistMapsGPUX[i], undistMapsGPUY[i], cv::INTER_LINEAR);
-            ret.push_back(output);
+
+        if (enable_rear) {
+            for (unsigned int i = 0; i < undistMaps.size(); i++) {
+                cv::cuda::GpuMat output;
+                cv::cuda::remap(img_cuda, output, undistMapsGPUX[i], undistMapsGPUY[i], cv::INTER_LINEAR);
+                ret.push_back(output);
+            }
+            return ret;
+        } else {
+            for (unsigned int i = 0; i < undistMaps.size() - 1; i++) {
+                cv::cuda::GpuMat output;
+                cv::cuda::remap(img_cuda, output, undistMapsGPUX[i], undistMapsGPUY[i], cv::INTER_LINEAR);
+                ret.push_back(output);
+            }
+            return ret; 
         }
-        return ret;
     }
 
 

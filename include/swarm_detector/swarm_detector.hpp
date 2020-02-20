@@ -53,6 +53,7 @@ private:
     virtual void publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones);
     bool debug_show = false;
     bool concat_for_tracking = false;
+    bool enable_rear = false;
     int width;
     int side_height;
     int yolo_height;

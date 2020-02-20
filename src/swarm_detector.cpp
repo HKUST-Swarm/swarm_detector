@@ -68,6 +68,7 @@ void SwarmDetector::onInit()
     double acpt_direction_thres;
     double acpt_inv_dep_thres;
 
+    nh.param<bool>("enable_rear", enable_rear, false);
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
     nh.param<std::string>("weights", darknet_weights_path, "");
@@ -388,7 +389,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     int id = 2;
     update_swarm_pose();
     // cv::cuda::GpuMat img_cuda = fisheye->undist_id_cuda(cv_ptr->image, id);
-    auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true);
+    auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true, enable_rear);
 
     double min_dt = 10000;
     Swarm::Pose pose_drone;
