@@ -127,6 +127,11 @@ class DroneTracker {
         return best_id;
     }
 
+
+    std::pair<cv::Rect2d, int> convert_rect2d(cv::Rect2d rect) {
+        int side_pos_id = floor(rect / top_size.width) + 1;
+    }
+
     bool update_bbox(cv::Rect2d rect, double p, cv::Mat & frame,  TrackedDrone & drone) {
         //Simple use width as scale
         //Depth = f*DroneWidth(meter)/width(pixel)
@@ -164,10 +169,16 @@ class DroneTracker {
     Eigen::Matrix3d Rdrone = Eigen::Matrix3d::Identity();
     Eigen::Vector3d tic;
     Eigen::Matrix3d ric;
+
+    std::vector<Eigen::Matrix3d> rics;
+
     double drone_scale;
     double min_p;
     double accept_direction_thres;
     double accept_inv_depth_thres;
+
+    bool is_concat_track = false;
+    int single_width = false;
 public:
 
     void update_swarm_pose(std::map<int, Eigen::Vector3d> _swarm_drones) {
@@ -195,6 +206,25 @@ public:
     {
         
     }   
+
+    DroneTracker(Eigen::Vector3d _tic, 
+                std::vector<Eigen::Matrix3d> _rics, 
+                camera_model::PinholeCameraPtr _cam, 
+                double _drone_scale, 
+                double _p_track, 
+                double _min_p,
+                double _accept_direction_thres,
+                double _accept_inv_depth_thres,
+                bool _track_matched_only,
+                int _single_width):
+        tic(_tic), rics(_rics), cam(_cam), focal_length(cam->getParameters().fx()), drone_scale(_drone_scale), p_track(_p_track), min_p(_min_p), 
+        accept_direction_thres(_accept_direction_thres),
+        accept_inv_depth_thres(_accept_inv_depth_thres),
+        track_matched_only(_track_matched_only), single_width(_single_width),
+        is_concat_track(true)
+    {
+        
+    }  
 
     std::vector<TrackedDrone> track(cv::Mat & _img) {
         std::vector<TrackedDrone> ret;

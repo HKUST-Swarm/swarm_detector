@@ -48,7 +48,7 @@ private:
     virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
     virtual void publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones);
     bool debug_show = false;
-    bool concat_for_tracking;
+    bool concat_for_tracking = false;
     int width;
     int side_height;
     int yolo_height;
