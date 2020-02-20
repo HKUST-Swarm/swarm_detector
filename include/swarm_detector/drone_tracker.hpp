@@ -129,7 +129,7 @@ class DroneTracker {
 
 
     std::pair<cv::Rect2d, int> convert_rect2d(cv::Rect2d rect) {
-        int side_pos_id = floor(rect / top_size.width) + 1;
+        // int side_pos_id = floor(rect / top_size.width) + 1;
     }
 
     bool update_bbox(cv::Rect2d rect, double p, cv::Mat & frame,  TrackedDrone & drone) {

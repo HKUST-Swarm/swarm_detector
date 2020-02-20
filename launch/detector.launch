@@ -1,5 +1,5 @@
 <launch>
-  <arg name="manager"     default="manager"/>
+  <arg name="manager" default="manager" />
   <arg name="show" default="false" />
   <arg name="image_topic" default="/pg_17591763/image_raw" />
   <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591763_camera_calib.yaml" />
@@ -10,10 +10,10 @@
     <remap from="~odom" to="no_odom_now"/>
     <remap from="~imu" to="/dji_sdk_1/dji_sdk/imu"/>
 
-    <param name="cam_file" type ="string" value="$(arg cam_file)"/>
-    <param name="weights" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights"/>
-    <param name="darknet_cfg" type ="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg"/>    
-    <param name="show" type ="bool" value="$(arg show)"/>    
+    <param name="cam_file" type="string" value="$(arg cam_file)" />
+    <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
+    <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />
+    <param name="show" type="bool" value="$(arg show)" />
     <rosparam>
       thres: 0.2
       overlap_thres: 0.6
