@@ -61,6 +61,7 @@ struct TrackedDrone {
 };
 
 
+#define MAX_DRONE_ID 100
 
 class DroneTracker {
 
@@ -79,6 +80,7 @@ class DroneTracker {
 
         int best_id = -1;
         double best_cost = 10000;
+        bool matched_on_estimate_drone = false;
 
         //Match with swarm drones
         for(auto & it : swarm_drones) {
@@ -95,6 +97,8 @@ class DroneTracker {
                 if (angle + PIXEL_COEFF*pixel_error < best_cost) {
                     best_cost = angle + PIXEL_COEFF*pixel_error;
                     best_id = it.first;
+                    ROS_INFO("Matched on estimate drone %d...", best_id);
+                    matched_on_estimate_drone = true;
                 }
             }
         }
@@ -112,8 +116,10 @@ class DroneTracker {
 
             if (angle < accept_direction_thres && pixel_error < accept_inv_depth_thres) {
                 if (angle + PIXEL_COEFF*pixel_error < best_cost) {
+                    if (matched_on_estimate_drone && it.first < MAX_DRONE_ID)
                     best_cost = angle + PIXEL_COEFF*pixel_error;
                     best_id = it.first;
+                    ROS_INFO("Matched on tracker drone %d...", best_id);
                 }
             }
         }
@@ -138,6 +144,8 @@ class DroneTracker {
                last_create_id ++;
                 _id = last_create_id;
             }
+        } else {
+            tracking_drones.erase(_id);
         }
 
         start_tracker_tracking(_id, frame, rect);
@@ -227,6 +235,9 @@ public:
         std::vector<TrackedDrone> ret;
 
         std::vector<TrackedDrone> new_tracked = track(img);
+
+        //We only pub out detected drones; 
+        //Tracked drones now is only for matching id
         for (auto rect: detected_drones) {
             TrackedDrone tracked_drones;
             bool success = update_bbox(rect.first, rect.second, img, tracked_drones);
@@ -241,8 +252,8 @@ public:
         if (trackers.find(_id) != trackers.end()) {
             trackers.erase(_id);
         }
-        // cv::Ptr<cv::TrackerMOSSE> tracker = cv ::TrackerMOSSE::create();
-        auto tracker = cv::TrackerMedianFlow::create();
+        auto tracker = cv ::TrackerMOSSE::create();
+        // auto tracker = cv::TrackerMedianFlow::create();
         tracker->init(frame, bbox);
         trackers[_id] = tracker;
     }
