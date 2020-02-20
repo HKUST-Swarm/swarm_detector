@@ -3,8 +3,10 @@ project(swarm_detector)
 
 add_compile_options(-std=c++11 -O3 -g)
 
+set(CMAKE_BUILD_TYPE "Debug")
+
+
 find_package(catkin REQUIRED COMPONENTS
-  cv_bridge
   cv_bridge
   geometry_msgs
   roscpp
@@ -18,8 +20,8 @@ find_package(catkin REQUIRED COMPONENTS
 SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 find_package(OpenCV 3.4 REQUIRED)
 
-set(ENABLE_BACKWARD true)
-set(DARKNET_ROOT $ENV{HOME}/source/darknet)
+# set(ENABLE_BACKWARD true)
+set(DARKNET_ROOT darknet)
 
 if(ENABLE_BACKWARD)
     add_definitions(-D USE_BACKWARD)
@@ -31,7 +33,6 @@ catkin_package(
 #  CATKIN_DEPENDS cv_bridge cv_bridge geometry_msgs roscpp rospy std_msgs swarm_msgs
 #  DEPENDS system_lib
 )
-
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
@@ -44,7 +45,6 @@ add_library(${PROJECT_NAME}
   src/swarm_detector.cpp
   src/darknet_detector.cpp
 )
-
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 
 ${OpenCV_LIBS}
 camera_model
@@ -56,3 +56,13 @@ target_link_libraries(${PROJECT_NAME}
 dw
 )
 endif()
+
+add_executable(test
+src/testDetector.cpp
+src/darknet_detector.cpp
+)
+
+target_link_libraries(test ${catkin_LIBRARIES} 
+${OpenCV_LIBS}
+darknet
+)

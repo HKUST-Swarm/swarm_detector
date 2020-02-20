@@ -3,7 +3,6 @@
 #include "sensor_msgs/Image.h"
 #include <pluginlib/class_list_macros.h>
 #include <eigen3/Eigen/Eigen>
-#include <opencv2/cudawarping.hpp>
 #include <queue>
 #include <tuple>
 #include <nav_msgs/Odometry.h>
@@ -23,18 +22,20 @@ namespace swarm_detector_pkg
 class SwarmDetector : public nodelet::Nodelet
 {
 public:
-    SwarmDetector() {
-        Rvcams.push_back(Eigen::Quaterniond::Identity()); //0 top (up half)
+    SwarmDetector()
+    {
+        Rvcams.push_back(Eigen::Quaterniond::Identity());                                             //0 top (up half)
         Rvcams.push_back(Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)))); //1 left
-        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0))); //2 front
-        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0))); //3 right
-        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0))); //4 rear
-        Rvcams.push_back(Eigen::Quaterniond::Identity()); //5 top (down half)
+        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //2 front
+        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //3 right
+        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //4 rear
+        Rvcams.push_back(Eigen::Quaterniond::Identity());                                             //5 top (down half)
         t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
     }
+
 private:
-    FisheyeUndist * fisheye = nullptr;
-    DarknetDetector * detector = nullptr;
+    FisheyeUndist *fisheye = nullptr;
+    DarknetDetector *detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
     ros::Subscriber swarm_fused_sub;
@@ -56,7 +57,7 @@ private:
     std::vector<Eigen::Quaterniond> Rvcams;
     Eigen::Quaterniond t_down;
 
-    std::vector<DroneTracker*> drone_trackers;
+    std::vector<DroneTracker *> drone_trackers;
     std::vector<ros::Time> last_detects;
 
     std::queue<std::pair<ros::Time, Swarm::Pose>> pose_buf;
@@ -70,4 +71,4 @@ private:
     std::map<int, Eigen::Vector3d> swarm_positions;
 };
 
-}
+} // namespace swarm_detector_pkg
