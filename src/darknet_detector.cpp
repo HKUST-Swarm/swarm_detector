@@ -1,34 +1,38 @@
 #include "swarm_detector/darknet_detector.hpp"
 #include "darknet.h"
 
-
-image ipl_to_image(IplImage *src)
+float m_table[256];
+void init_table()
 {
-    int h = src->height;
-    int w = src->width;
-    int c = src->nChannels;
-    image im = make_image(w, h, c);
-    unsigned char *data = (unsigned char *)src->imageData;
-    int step = src->widthStep;
-    int i, j, k;
+	for (int i = 0; i < 256; i++)
+	{
+		m_table[i] = i * 1.0 / 255.0f;
+	}
+	return;
+}
 
-    for (i = 0; i < h; ++i)
-    {
-        for (k = 0; k < c; ++k)
-        {
-            for (j = 0; j < w; ++j)
-            {
-                im.data[k * w * h + i * w + j] = data[i * step + j * c + k] / 255.;
-            }
-        }
-    }
-    return im;
+
+
+image mat_to_image(const cv::Mat &mat) {
+    int w = mat.cols;
+    int h = mat.rows;
+	image im = make_image(w, h, mat.channels());
+	for(int c = 0; c < mat.channels(); ++c){
+		for(int y = 0; y < mat.rows; ++y){
+			for(int x = 0; x < mat.cols; ++x){
+				im.data[c*im.h*im.w + y*im.w + x] = m_table[mat.data[y*mat.step + x*mat.channels() + c]];
+			}
+		}
+	}
+ 
+	return im;
 }
 
 DarknetDetector::DarknetDetector(std::string weights,
                                  std::string cfg,
                                  double thres, double overlap_thres)
 {
+    init_table();
     printf("Loading darknet weights from %s cfg from %s\n", weights.c_str(), cfg.c_str());
     printf("Yolo Thres %f Overlap %f\n", thres, overlap_thres);
     this->net = load_network((char *)cfg.c_str(), (char *)weights.c_str(), 0);
@@ -37,15 +41,11 @@ DarknetDetector::DarknetDetector(std::string weights,
     this->overlap_thres = overlap_thres;
 }
 
+
 std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvImg)
 {
-    cv::Mat temp;
-    if (cvImg.channels() == 1)
-        cv::cvtColor(cvImg, temp, cv::COLOR_GRAY2BGR);
-    else
-        temp = cvImg;
-    IplImage iplImg = cvIplImage(temp);
-    image img = ipl_to_image(&iplImg);
+    image img = mat_to_image(cvImg);
+
     network_predict_image(this->net, img);
 
     int num_boxes = 0;
