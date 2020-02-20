@@ -6,6 +6,8 @@
 #include <nav_msgs/Odometry.h>
 #include <swarm_msgs/swarm_detected.h>
 #include <swarm_msgs/node_detected_xyzyaw.h>
+#include <swarm_msgs/swarm_fused.h>
+#include <swarm_msgs/Pose.h>
 
 using namespace swarm_msgs;
 #ifdef USE_BACKWARD
@@ -25,7 +27,8 @@ namespace swarm_detector_pkg
 void SwarmDetector::onInit() {
     ros::NodeHandle nh = this->getPrivateNodeHandle();
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
-    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("swarm_detected", 3);
+    swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
+    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_fused_relative>("swarm_fused_relative", 3);
 
     std::string darknet_weights_path;
     std::string darknet_cfg;
@@ -100,6 +103,23 @@ void SwarmDetector::onInit() {
 }
 
 
+void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf) {
+    Eigen::AngleAxisd rotate_by_yaw(sf.self_yaw, Eigen::Vector3d::UnitZ());
+    for (unsigned int i = 0; i < sf.ids.size(); i ++ ) {
+        swarm_positions[i] = rotate_by_yaw * Eigen::Vector3d(
+                sf.relative_drone_position[i].x,
+                sf.relative_drone_position[i].y,
+                sf.relative_drone_position[i].z
+        );
+
+    }
+}
+
+void SwarmDetector::update_swarm_pose() {
+    //May update by velocity later
+}
+
+
 cv::Scalar ScalarHSV2BGR(uchar H, uchar S, uchar V) {
     cv::Mat rgb;
     cv::Mat hsv(1, 1, CV_8UC3, cv::Scalar(H,S,V));
@@ -107,7 +127,7 @@ cv::Scalar ScalarHSV2BGR(uchar H, uchar S, uchar V) {
     return cv::Scalar(rgb.data[0], rgb.data[1], rgb.data[2]);
 }
 
-std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direction, EigenPoseStamped pose_stamped, cv::Mat & debug_img) {
+std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat & img_cuda, int direction, Swarm::Pose pose_drone, cv::Mat & debug_img) {
     std::vector<TrackedDrone> tracked_drones;
 
     bool need_detect = false;
@@ -120,8 +140,8 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat &
         last_detects[direction] = ros::Time::now();
     }
 
-    drone_trackers[direction]->update_cam_pose(std::get<2>(pose_stamped), std::get<1>(pose_stamped).toRotationMatrix());
-    
+    drone_trackers[direction]->update_cam_pose(pose_drone.pos(), pose_drone.att().toRotationMatrix());
+    drone_trackers[direction]->update_swarm_pose(swarm_positions);
     if (need_detect) {
         //Detect and update to tracker
         cv::Rect roi(0, 0, img.cols, img.rows);
@@ -189,20 +209,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::cuda::GpuMat &
 }
 
 void SwarmDetector::odometry_callback(const nav_msgs::Odometry & odom) {
-    // make_tuple()
-    Eigen::Quaterniond quat(
-        odom.pose.pose.orientation.w, 
-        odom.pose.pose.orientation.x, 
-        odom.pose.pose.orientation.y, 
-        odom.pose.pose.orientation.z 
-    );
-
-    Eigen::Vector3d pos(odom.pose.pose.position.x, 
-        odom.pose.pose.position.y, 
-        odom.pose.pose.position.z
-    );
-
-    auto tup = std::make_tuple(odom.header.stamp, quat, pos);
+    auto tup = std::make_pair(odom.header.stamp, Swarm::Pose(odom.pose.pose));
     pose_buf.push(tup);
 }
 
@@ -233,32 +240,30 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
     swarm_detected_pub.publish(sd);
 }
 
+
 void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg);
     
     int id = 2;
-    
+    update_swarm_pose();
     // cv::cuda::GpuMat img_cuda = fisheye->undist_id_cuda(cv_ptr->image, id);
     auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true);
 
     double min_dt = 10000;
-    Eigen::Vector3d Pdrone = Eigen::Vector3d::Zero();
-    Eigen::Quaterniond Qdrone = Eigen::Quaterniond::Identity();
+    Swarm::Pose pose_drone;
     while(pose_buf.size() > 0) {
-        double dt = (std::get<0>(pose_buf.front()) - msg->header.stamp).toSec();
+        double dt = (pose_buf.front().first - msg->header.stamp).toSec();
         if (dt < 0) {
             //Pose in buffer is older
             if (fabs(dt) < min_dt) {
-                Pdrone = std::get<2>(pose_buf.front());
-                Qdrone = std::get<1>(pose_buf.front());
+                pose_drone = pose_buf.front().second;
             }
         }
 
         if (dt > 0) {
             //pose in buffer is newer
             if (fabs(dt) < min_dt) {
-                Pdrone = std::get<2>(pose_buf.front());
-                Qdrone = std::get<1>(pose_buf.front());
+                pose_drone = pose_buf.front().second;
             }
             break;
         }
@@ -275,8 +280,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
 
     std::vector<TrackedDrone> track_drones;
     for (int i = 0; i < 6; i++) {
-        // ROS_INFO("Using img %d, direction %d", i%5, i);
-        auto ret = virtual_cam_callback(imgs[i%5], i, std::make_tuple(msg->header.stamp, Qdrone, Pdrone), debug_imgs[i%5]);
+        auto ret = virtual_cam_callback(imgs[i%5], i, pose_drone, debug_imgs[i%5]);
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
     }
 

@@ -7,6 +7,8 @@
 #include <queue>
 #include <tuple>
 #include <nav_msgs/Odometry.h>
+#include <swarm_msgs/swarm_fused_relative.h>
+#include <swarm_msgs/Pose.h>
 
 class FisheyeUndist;
 class DarknetDetector;
@@ -34,10 +36,12 @@ private:
     DarknetDetector * detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
+    ros::Subscriber swarm_fused_sub;
     ros::Publisher swarm_detected_pub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
-    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::cuda::GpuMat & img, int direction, EigenPoseStamped pose_stamped, cv::Mat & debug_img);
+    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::cuda::GpuMat & img, int direction, Swarm::Pose, cv::Mat & debug_img);
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
+    virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
     virtual void publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones);
     bool debug_show = false;
     int width;
@@ -51,10 +55,15 @@ private:
     std::vector<DroneTracker*> drone_trackers;
     std::vector<ros::Time> last_detects;
 
-    std::queue<std::tuple<ros::Time, Eigen::Quaterniond, Eigen::Vector3d>> pose_buf;
+    std::queue<std::pair<ros::Time, Swarm::Pose>> pose_buf;
 
     Eigen::Vector3d Pcam = Eigen::Vector3d::Zero();
     Eigen::Matrix3d Rcam = Eigen::Matrix3d::Identity();
+
+    void update_swarm_pose();
+    
+    //This is in fake body frame(yaw only)
+    std::map<int, Eigen::Vector3d> swarm_positions;
 };
 
 }
