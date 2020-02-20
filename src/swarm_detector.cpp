@@ -192,7 +192,6 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
         cv::Rect roi(0, 0, img.cols, img.rows);
         if (direction == 0 || direction == 5)
         {
-            std::cout << "IMG " << img.size() << std::endl;
             //If top, detect half plane and track whole
             double offset = -1;
             if (direction == 0)
