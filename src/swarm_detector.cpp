@@ -252,6 +252,23 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
     swarm_detected_pub.publish(sd);
 }
 
+cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr, bool enable_rear_side=true) {
+    int cols = arr[1].cols;
+    int rows = arr[1].rows;
+    if (enable_rear_side) {
+        cv::cuda::GpuMat NewImg(rows, cols*4, arr[1].type()); 
+        for (int i = 1; i < 5; i ++) {
+            arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
+        }
+        return NewImg;
+    } else {
+        cv::cuda::GpuMat NewImg(rows, cols*3, arr[1].type()); 
+        for (int i = 1; i < 4; i ++) {
+            arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
+        }
+        return NewImg;
+    }
+}
 
 void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg);
@@ -265,10 +282,12 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     Swarm::Pose pose_drone;
     while(pose_buf.size() > 0) {
         double dt = (pose_buf.front().first - msg->header.stamp).toSec();
+        // ROS_INFO("DT %f", dt);
         if (dt < 0) {
             //Pose in buffer is older
             if (fabs(dt) < min_dt) {
                 pose_drone = pose_buf.front().second;
+                min_dt = fabs(dt);
             }
         }
 
@@ -276,6 +295,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
             //pose in buffer is newer
             if (fabs(dt) < min_dt) {
                 pose_drone = pose_buf.front().second;
+                min_dt = fabs(dt);
             }
             break;
         }
