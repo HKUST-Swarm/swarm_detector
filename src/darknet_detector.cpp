@@ -1,6 +1,7 @@
 #include "swarm_detector/darknet_detector.hpp"
 #include "darknet.h"
 
+
 image ipl_to_image(IplImage *src)
 {
     int h = src->height;
@@ -33,6 +34,7 @@ DarknetDetector::DarknetDetector(std::string weights,
     this->net = load_network((char *)cfg.c_str(), (char *)weights.c_str(), 0);
     set_batch_network(this->net, 0);
     this->thres = thres;
+    this->overlap_thres = overlap_thres;
 }
 
 std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvImg)
@@ -47,17 +49,22 @@ std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvIm
     network_predict_image(this->net, img);
 
     int num_boxes = 0;
-    detection *dets = get_network_boxes(net, img.w, img.h, this->thres, 0, nullptr, 1, &num_boxes);
+    detection *dets = get_network_boxes(net, img.w, img.h, this->thres, 0.5, nullptr, 1, &num_boxes);
+    if (overlap_thres > 0) {
+        do_nms_sort(dets, num_boxes, 1, overlap_thres);
+    }
 
     std::vector<std::pair<cv::Rect2d, double>> ret;
     for (unsigned i = 0; i < num_boxes; i++)
     {
-        ROS_WARN("%f %f", dets[i].bbox.x, dets[i].bbox.y);
-        ret.push_back(std::make_pair(cv::Rect2d(dets[i].bbox.x * img.w,
-                                                dets[i].bbox.y * img.h,
-                                                dets[i].bbox.w * img.w,
-                                                dets[i].bbox.h * img.h),
-                                     *(dets[i].prob)));
+        if (*(dets[i].prob) > this->thres) {
+            ROS_WARN("%f %f", dets[i].bbox.x, dets[i].bbox.y);
+            ret.push_back(std::make_pair(cv::Rect2d((dets[i].bbox.x - dets[i].bbox.w/2) * img.w,
+                                                    (dets[i].bbox.y - dets[i].bbox.h/2) * img.h,
+                                                    dets[i].bbox.w * img.w,
+                                                    dets[i].bbox.h * img.h),
+                                        *(dets[i].prob)));
+        }
     }
 
     free_detections(dets, num_boxes);

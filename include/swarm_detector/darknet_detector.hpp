@@ -16,4 +16,5 @@ public:
 protected:
     network *net;
     double thres;
+    double overlap_thres;
 };

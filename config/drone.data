@@ -1,0 +1,5 @@
+classes= 1
+train  = cfg/drone_processed_train.txt  
+valid  = cfg/drone_processed_test.txt 
+names = /home/xuhao/swarm_ws/src/swarm_detector/config/drone.names  
+backup = drone_weights_288/
