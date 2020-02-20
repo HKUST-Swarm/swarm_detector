@@ -28,7 +28,9 @@ void SwarmDetector::onInit() {
     ros::NodeHandle nh = this->getPrivateNodeHandle();
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
     swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
-    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_fused_relative>("swarm_fused_relative", 3);
+    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("swarm_fused_relative", 3);
+    odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
+    imu_sub = nh.subscribe("imu", 3, &SwarmDetector::imu_callback, this);
 
     std::string darknet_weights_path;
     std::string darknet_cfg;
@@ -101,6 +103,8 @@ void SwarmDetector::onInit() {
 
     ROS_INFO("Finish initialize swarm detector, wait for data\n");
 }
+
+
 
 
 void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf) {
@@ -212,6 +216,14 @@ void SwarmDetector::odometry_callback(const nav_msgs::Odometry & odom) {
     auto tup = std::make_pair(odom.header.stamp, Swarm::Pose(odom.pose.pose));
     pose_buf.push(tup);
 }
+
+
+void SwarmDetector::imu_callback(const sensor_msgs::Imu & imu_data) {
+    Eigen::Quaterniond quat(imu_data.orientation.w, imu_data.orientation.x, imu_data.orientation.y, imu_data.orientation.z);
+    auto tup = std::make_pair(imu_data.header.stamp, Swarm::Pose(quat, Eigen::Vector3d::Zero()));
+    pose_buf.push(tup);
+}
+
 
 
 void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones) {

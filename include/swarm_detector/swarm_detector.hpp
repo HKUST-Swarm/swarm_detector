@@ -9,6 +9,7 @@
 #include <nav_msgs/Odometry.h>
 #include <swarm_msgs/swarm_fused_relative.h>
 #include <swarm_msgs/Pose.h>
+#include <sensor_msgs/Imu.h>
 
 class FisheyeUndist;
 class DarknetDetector;
@@ -38,9 +39,12 @@ private:
     ros::Subscriber fisheye_img_sub;
     ros::Subscriber swarm_fused_sub;
     ros::Publisher swarm_detected_pub;
+    ros::Subscriber odom_sub;
+    ros::Subscriber imu_sub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
     virtual std::vector<TrackedDrone> virtual_cam_callback(cv::cuda::GpuMat & img, int direction, Swarm::Pose, cv::Mat & debug_img);
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
+    virtual void imu_callback(const sensor_msgs::Imu & imu_data);
     virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
     virtual void publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones);
     bool debug_show = false;
