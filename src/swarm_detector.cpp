@@ -390,6 +390,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     update_swarm_pose();
     // cv::cuda::GpuMat img_cuda = fisheye->undist_id_cuda(cv_ptr->image, id);
     auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true, enable_rear);
+    int total_imgs = imgs.size();
 
     double min_dt = 10000;
     Swarm::Pose pose_drone;
@@ -423,16 +424,16 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     }
 
     std::vector<cv::Mat> debug_imgs;
-    debug_imgs.resize(5);
+    debug_imgs.resize(total_imgs);
     std::vector<cv::Mat> img_cpus;
-    img_cpus.resize(5);
-    for (unsigned int i = 0; i < 5; i++) {
+    img_cpus.resize(total_imgs);
+    for (unsigned int i = 0; i < total_imgs; i++) {
         imgs[i].download(img_cpus[i]);
     }
 
     std::vector<TrackedDrone> track_drones;
-    for (int i = 0; i < 6; i++) {
-        auto ret = virtual_cam_callback(img_cpus[i%5], i, pose_drone, debug_imgs[i%5]);
+    for (int i = 0; i < total_imgs + 1; i++) {
+        auto ret = virtual_cam_callback(img_cpus[i%total_imgs], i, pose_drone, debug_imgs[i%total_imgs]);
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
     }
 
@@ -441,7 +442,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     {
         cv::Mat _show;
         cv::resize(debug_imgs[0], _show, cv::Size(side_height, side_height));
-        for (int i = 1; i < 5; i++)
+        for (int i = 1; i < total_imgs; i++)
         {
             cv::hconcat(_show, debug_imgs[i], _show);
         }

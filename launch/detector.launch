@@ -12,7 +12,7 @@
     <remap from="~imu" to="/dji_sdk_1/dji_sdk/imu"/>
 
     <param name="cam_file" type="string" value="$(arg cam_file)" />
-    <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny_288_70000.weights" />
+    <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
     <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />
     <param name="show" type="bool" value="$(arg show)" />
     <rosparam>
@@ -27,7 +27,7 @@
       drone_scale: 0.6
       acpt_direction_thres: 10
       acpt_inv_dep_thres: 15
-      enable_rear: true
+      enable_rear: false
     </rosparam>
   </node>
 </launch>
