@@ -46,7 +46,6 @@ backward::SignalHandling sh;
 #endif
 
 #define WARN_DT 0.005
-
 namespace swarm_detector_pkg
 {
 
@@ -207,7 +206,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
 
             // ROS_INFO("1");
             cv::Mat img_roi = img(roi);
-            detected_drones = detector->detect(img_roi);
+            // detected_drones = detector->detect(img_roi);
             NODELET_DEBUG("2");
 
             if (offset > 0)
@@ -217,15 +216,10 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
                     rect.first.y = rect.first.y + offset;
                 }
             }
-            // if (debug_show) {
-            //     char win_name[10] = {0};
-            //     sprintf(win_name, "ROI %d", direction);
-            //     cv::imshow(win_name, img_roi);
-            // }
         }
         else
         {
-            detected_drones = detector->detect(img);
+            // detected_drones = detector->detect(img);
         }
 
         ROS_INFO("Detect cost %fms", t_d.toc());
@@ -433,6 +427,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
 
     std::vector<TrackedDrone> track_drones;
     for (int i = 0; i < total_imgs + 1; i++) {
+        // ROS_INFO("V cam %d", i);
         auto ret = virtual_cam_callback(img_cpus[i%total_imgs], i, pose_drone, debug_imgs[i%total_imgs]);
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
     }
@@ -441,11 +436,20 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     if (debug_show)
     {
         cv::Mat _show;
-        cv::resize(debug_imgs[0], _show, cv::Size(side_height, side_height));
-        for (int i = 1; i < total_imgs; i++)
-        {
-            cv::hconcat(_show, debug_imgs[i], _show);
-        }
+        cv::Mat _show_l2;
+        cv::Mat _show_l3;
+        cv::resize(cv_ptr->image(cv::Rect(190, 62, 900, 900)), _show, cv::Size(width, width));
+        cv::Mat tmp;
+        cv::resize(debug_imgs[0], tmp, cv::Size(width, width));
+        cv::hconcat(_show, tmp, _show);
+
+        cv::hconcat(debug_imgs[1], debug_imgs[2], _show_l2);
+        cv::hconcat(debug_imgs[3], debug_imgs[4], _show_l3);
+
+        cv::vconcat(_show, _show_l2, _show);
+        cv::vconcat(_show, _show_l3, _show);
+
+        cv::line(_show, cv::Point(_show.cols/2, 0), cv::Point(_show.cols/2, _show.rows), cv::Scalar(255, 255, 255));
 
         double f_resize = ((double)show_width) / (double)_show.cols;
         cv::cvtColor(_show, _show, cv::COLOR_RGB2BGR);
