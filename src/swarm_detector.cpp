@@ -292,13 +292,13 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
         nd.dpos.y = tdrone.unit_p_body_yaw_only.y();
         nd.dpos.z = tdrone.unit_p_body_yaw_only.z();
 
-        nd.is_2d_detect = true;
+        nd.enable_scale = true;
         nd.is_yaw_valid = false;
         nd.self_drone_id = -1;
         nd.remote_drone_id = tdrone._id;
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
-        // nd.inv_dep = tdrone.inv_dep;
+        nd.inv_dep = tdrone.inv_dep;
 
         detected_nodes.push_back(nd);
     }
