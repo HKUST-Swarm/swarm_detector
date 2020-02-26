@@ -206,7 +206,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
 
             // ROS_INFO("1");
             cv::Mat img_roi = img(roi);
-            // detected_drones = detector->detect(img_roi);
+            detected_drones = detector->detect(img_roi);
             NODELET_DEBUG("2");
 
             if (offset > 0)
@@ -219,7 +219,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
         }
         else
         {
-            // detected_drones = detector->detect(img);
+            detected_drones = detector->detect(img);
         }
 
         ROS_INFO("Detect cost %fms", t_d.toc());
