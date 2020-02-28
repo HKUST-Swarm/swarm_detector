@@ -1,11 +1,13 @@
 <launch>
+  <arg name="device" />
   <arg name="manager" default="manager" />
   <arg name="show" default="false" />
-  <arg name="image_topic" default="/pg_17591762/image_raw" />
-  <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591762_camera_calib.yaml" />
+  <arg name="image_topic" default="/pg_$(arg device)/image_raw" />
+  <arg name="cam_file" default="/home/dji/SwarmConfig/fisheye_ptgrey_n3/up.yaml" />
+  <arg name="output" default="screen" />
 
-  <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen" />
-  <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="screen">
+  <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="$(arg output)" />
+  <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="$(arg output)">
     <remap from="~image_raw" to="$(arg image_topic)"/>
     <remap from="~image_front" to="/flattener/fuck"/>
     <remap from="~odom" to="no_odom_now"/>
