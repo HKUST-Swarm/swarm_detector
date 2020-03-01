@@ -42,6 +42,7 @@ private:
     ros::Subscriber singleview_img_sub;
     ros::Subscriber swarm_fused_sub;
     ros::Publisher swarm_detected_pub;
+    ros::Publisher image_show_pub;
     ros::Subscriber odom_sub;
     ros::Subscriber imu_sub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
@@ -58,6 +59,8 @@ private:
     int side_height;
     int yolo_height;
     int show_width;
+    bool pub_image = false;
+    bool pub_track_result = false;
     double detect_duration = 0.5;
     std::vector<Eigen::Quaterniond> Rvcams;
     Eigen::Quaterniond t_down;

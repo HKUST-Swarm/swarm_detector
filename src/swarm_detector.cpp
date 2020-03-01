@@ -70,6 +70,8 @@ void SwarmDetector::onInit()
     nh.param<bool>("enable_rear", enable_rear, false);
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
+    nh.param<bool>("pub_image", pub_image, true);
+    nh.param<bool>("pub_track_result", pub_track_result, true);
     nh.param<std::string>("weights", darknet_weights_path, "");
     nh.param<std::string>("darknet_cfg", darknet_cfg, "");
     nh.param<std::string>("cam_file", camera_config_file, "");
@@ -96,6 +98,9 @@ void SwarmDetector::onInit()
     if (fh == NULL)
     {
         ROS_WARN("config_file dosen't exist; Assume identity camera pose");
+	Rcam = Eigen::Matrix3d::Identity();
+	Pcam = Eigen::Vector3d(0.105, 0.004614, 0.0898);
+	std::cout << "Translation" << Pcam;
     }
     else
     {
@@ -112,8 +117,7 @@ void SwarmDetector::onInit()
     fisheye = new FisheyeUndist(camera_config_file, fov, true, width);
 
     side_height = fisheye->sideImgHeight;
-    for (int i = 0; i < 6; i++)
-    {
+    for (int i = 0; i < 6; i++) {
         last_detects.push_back(ros::Time(0));
         ROS_INFO("Init tracker on %d with P %f %f %f R", i, Pcam.x(), Pcam.y(), Pcam.z());
         std::cout << Rcam * Rvcams[i] << std::endl;
@@ -131,10 +135,12 @@ void SwarmDetector::onInit()
 
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
     singleview_img_sub = nh.subscribe("image_front", 3, &SwarmDetector::front_image_callback, this);
-    swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
-    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("swarm_fused_relative", 3);
+    swarm_fused_sub = nh.subscribe("swarm_fused_relative", 3, &SwarmDetector::swarm_fused_callback, this);
+    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected", 3);
     odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
-    imu_sub = nh.subscribe("imu", 3, &SwarmDetector::imu_callback, this);
+    imu_sub = nh.subscribe("imu", 10, &SwarmDetector::imu_callback, this);
+
+    image_show_pub = nh.advertise<sensor_msgs::Image>("show", 1);
     
     ROS_INFO("Finish initialize swarm detector, wait for data\n");
 }
@@ -145,7 +151,7 @@ void SwarmDetector::onInit()
 void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf) {
     Eigen::AngleAxisd rotate_by_yaw(sf.self_yaw, Eigen::Vector3d::UnitZ());
     for (unsigned int i = 0; i < sf.ids.size(); i ++ ) {
-        swarm_positions[i] = rotate_by_yaw * Eigen::Vector3d(
+        swarm_positions[sf.ids[i]] = rotate_by_yaw * Eigen::Vector3d(
                 sf.relative_drone_position[i].x,
                 sf.relative_drone_position[i].y,
                 sf.relative_drone_position[i].z
@@ -192,7 +198,6 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
         cv::Rect roi(0, 0, img.cols, img.rows);
         if (direction == 0 || direction == 5)
         {
-            //If top, detect half plane and track whole
             double offset = -1;
             if (direction == 0)
             {
@@ -204,10 +209,8 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
                 offset = img.rows - yolo_height;
             }
 
-            // ROS_INFO("1");
             cv::Mat img_roi = img(roi);
             detected_drones = detector->detect(img_roi);
-            NODELET_DEBUG("2");
 
             if (offset > 0)
             {
@@ -222,17 +225,21 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
             detected_drones = detector->detect(img);
         }
 
-        ROS_INFO("Detect cost %fms", t_d.toc());
+        ROS_INFO("Detect cost %fms, find %ld drones on camera %d", t_d.toc(), detected_drones.size(), direction);
 
         tracked_drones = drone_trackers[direction]->process_detect(img, detected_drones);
     }
     else
     {
         //Track only
-        tracked_drones = drone_trackers[direction]->track(img);
+        if (pub_track_result) {
+            tracked_drones = drone_trackers[direction]->track(img);
+        } else {
+            drone_trackers[direction]->track(img);
+        }
     }
 
-    if (debug_show)
+    if (debug_show || pub_image)
     {
         if (debug_img.empty())
         {
@@ -285,8 +292,11 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
     sd.self_drone_id = -1;
     sd.is_6d_detect = false;
     auto &detected_nodes = sd.detected_nodes_xyz_yaw;
-    for (TrackedDrone &tdrone : drones)
-    {
+    for (TrackedDrone &tdrone : drones) {
+        if (tdrone._id >= MAX_DRONE_ID) {
+            continue;
+        }
+        ROS_INFO("Pub drone %d", tdrone._id);
         node_detected_xyzyaw nd;
         nd.dpos.x = tdrone.unit_p_body_yaw_only.x();
         nd.dpos.y = tdrone.unit_p_body_yaw_only.y();
@@ -364,14 +374,20 @@ void SwarmDetector::front_image_callback(const sensor_msgs::Image::ConstPtr &msg
     cv::Mat _show;
     auto ret = virtual_cam_callback(cv_ptr->image, 2, pose_drone, _show);
     // track_drones.insert(track_drones.end(), ret.begin(), ret.end());
-    // publish_tracked_drones(msg->header.stamp, track_drones);
-    if (debug_show)
+   // publish_tracked_drones(msg->header.stamp, track_drones);
+    if (debug_show || pub_image)
     {
         double f_resize = ((double)show_width) / (double)_show.cols;
         cv::cvtColor(_show, _show, cv::COLOR_RGB2BGR);
         cv::resize(_show, _show, cv::Size(), f_resize, f_resize);
-        cv::imshow("DroneTracker", _show);
-        cv::waitKey(3);
+	    if (debug_show) {
+       	    cv::imshow("DroneTracker", _show);
+            cv::waitKey(3);
+	    } else {
+	        cv_bridge::CvImage cvimg;
+	        cvimg.image = _show;
+            image_show_pub.publish(cvimg);
+	    }
     }
 }
 
@@ -433,7 +449,8 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     }
 
     publish_tracked_drones(msg->header.stamp, track_drones);
-    if (debug_show)
+
+    if (debug_show || pub_image)
     {
         cv::Mat _show;
         cv::Mat _show_l2;
@@ -455,8 +472,15 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         cv::cvtColor(_show, _show, cv::COLOR_RGB2BGR);
         cv::resize(_show, _show, cv::Size(), f_resize, f_resize);
 
-        cv::imshow("DroneTracker", _show);
-        cv::waitKey(3);
+	    if (debug_show) {
+       	    cv::imshow("DroneTracker", _show);
+            cv::waitKey(3);
+	    } else {
+	        cv_bridge::CvImage cvimg;
+	        cvimg.encoding = sensor_msgs::image_encodings::BGR8;
+	        cvimg.image = _show;
+            image_show_pub.publish(cvimg);
+	    }
     }
 }
 
