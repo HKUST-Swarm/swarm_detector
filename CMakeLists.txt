@@ -16,16 +16,32 @@ find_package(catkin REQUIRED COMPONENTS
   camera_model
 )
 
+SET(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
 
 SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 find_package(OpenCV 3.4 REQUIRED)
 
 set(ENABLE_BACKWARD true)
+set(ENABLE_DARKNET true)
+set(ENABLE_TENSORRT true)
+
 set(DARKNET_ROOT $ENV{HOME}/source/darknet)
-# set(DARKNET_ROOT darknet)
+set(TRT_YOLO_ROOT $ENV{HOME}/source/yolo-tensorrt)
 
 if(ENABLE_BACKWARD)
-    add_definitions(-D USE_BACKWARD)
+  add_definitions(-D USE_BACKWARD)
+endif()
+
+if(ENABLE_DARKNET) 
+  add_definitions(-D USE_DARKNET)
+  link_directories(${DARKNET_ROOT})
+endif()
+
+if(ENABLE_TENSORRT)
+  add_definitions(-D USE_TENSORRT)
+  include_directories(${TRT_YOLO_ROOT}/modules)
+  include_directories(${TRT_YOLO_ROOT}/extra)
+  link_directories(${TRT_YOLO_ROOT}/build)
 endif()
 
 catkin_package(
@@ -40,17 +56,27 @@ include_directories(
   ${DARKNET_ROOT}/include
 )
 
-link_directories(${DARKNET_ROOT})
+
 
 add_library(${PROJECT_NAME}
   src/swarm_detector.cpp
   src/darknet_detector.cpp
 )
+
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 
-${OpenCV_LIBS}
-camera_model
-darknet
+  ${OpenCV_LIBS}
+  camera_model
 )
+
+if(ENABLE_DARKNET) 
+target_link_libraries(${PROJECT_NAME}
+  darknet
+)
+endif()
+
+if(ENABLE_TENSORRT)
+  target_link_libraries(${PROJECT_NAME} detector)
+endif()
 
 if (ENABLE_BACKWARD) 
 target_link_libraries(${PROJECT_NAME}
@@ -58,12 +84,3 @@ dw
 )
 endif()
 
-# add_executable(test
-# src/testDetector.cpp
-# src/darknet_detector.cpp
-# )
-
-# target_link_libraries(test ${catkin_LIBRARIES} 
-# ${OpenCV_LIBS}
-# darknet
-# )

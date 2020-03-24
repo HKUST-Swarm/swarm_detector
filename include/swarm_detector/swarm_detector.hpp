@@ -12,7 +12,7 @@
 #include <opencv2/opencv.hpp>
 
 class FisheyeUndist;
-class DarknetDetector;
+class BaseDetector;
 class DroneTracker;
 struct TrackedDrone;
 
@@ -36,7 +36,7 @@ public:
 
 private:
     FisheyeUndist *fisheye = nullptr;
-    DarknetDetector *detector = nullptr;
+    BaseDetector *detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
     ros::Subscriber singleview_img_sub;
@@ -55,6 +55,7 @@ private:
     bool debug_show = false;
     bool concat_for_tracking = false;
     bool enable_rear = false;
+    bool use_tensorrt = false;
     int width;
     int side_height;
     int yolo_height;

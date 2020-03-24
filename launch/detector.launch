@@ -34,6 +34,7 @@
       acpt_direction_thres: 0.15
       acpt_inv_dep_thres: 0.5
       pub_track_result: false
+      use_tensorrt: true
     </rosparam>
   </node>
 </launch>

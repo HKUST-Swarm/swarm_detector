@@ -1,6 +1,7 @@
 #include "swarm_detector/swarm_detector.hpp"
 #include "swarm_detector/fisheye_undist.hpp"
 #include "swarm_detector/darknet_detector.hpp"
+#include "swarm_detector/tensorrt_detector.hpp"
 #include "swarm_detector/drone_tracker.hpp"
 #include <opencv2/core/eigen.hpp>
 #include <nav_msgs/Odometry.h>
@@ -71,6 +72,7 @@ void SwarmDetector::onInit()
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
     nh.param<bool>("pub_image", pub_image, true);
+    nh.param<bool>("use_tensorrt", use_tensorrt, true);
     nh.param<bool>("pub_track_result", pub_track_result, true);
     nh.param<std::string>("weights", darknet_weights_path, "");
     nh.param<std::string>("darknet_cfg", darknet_cfg, "");
@@ -113,7 +115,12 @@ void SwarmDetector::onInit()
         fsSettings.release();
     }
 
-    detector = new DarknetDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres);
+    if(use_tensorrt) {
+        detector = new TensorRTDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres);
+    } else {
+        detector = new DarknetDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres);
+    }
+
     fisheye = new FisheyeUndist(camera_config_file, fov, true, width);
 
     side_height = fisheye->sideImgHeight;
