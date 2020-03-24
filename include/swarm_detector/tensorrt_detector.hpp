@@ -16,6 +16,7 @@ public:
         config.file_model_weights = weights;
         config.calibration_image_list_file_txt = "";
         config.inference_precison = FP32;
+        config.detect_thresh = _thres;
         detector.init(config);
 
     }
@@ -30,14 +31,6 @@ public:
             cv::rectangle(image, r.rect, cv::Scalar(255, 0, 0), 2);
 	    }
         return ret;
-    }
-
-    //hconcat two image for detect
-    virtual std::vector<std::pair<cv::Rect2d, double>> detect(cv::Mat &image1, cv::Mat image2) override {
-        cv::Mat _new;
-        cv::hconcat(image1, image2, _new);
-        cv::imshow("new img to detect", _new);
-        this->detect(_new);
     }
 
 };

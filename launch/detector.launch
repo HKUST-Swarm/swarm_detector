@@ -20,14 +20,14 @@
     <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />
     <param name="show" type="bool" value="$(arg show)" />
     <param name="pub_image" type="bool" value="$(arg pub_image)" />
-    <param name="enable_rear" type="bool" value="$(arg pub_image)" />
+    <param name="enable_rear" type="bool" value="true" />
     <rosparam>
       thres: 0.2
       overlap_thres: 0.3
       fov: 235
       width: 512
       show_width: 800
-      detect_duration: 1.0
+      detect_duration: 0.0
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.6

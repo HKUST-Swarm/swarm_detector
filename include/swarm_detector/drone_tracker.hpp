@@ -94,7 +94,7 @@ class DroneTracker {
         //Match with swarm drones
         for(auto & it : swarm_drones) {
             printf("\n\n\n Match [%f,%f](%f) with %d\n", 
-                it.first, tdrone.center.x(), tdrone.center.y(), tdrone.bbox.width);
+                tdrone.center.x(), tdrone.center.y(), tdrone.bbox.width, it.first);
             auto dis2d = tdrone.distance_to_drone(it.second, tic, ric, Rdrone);
             double angle = acos(dis2d.x());
 

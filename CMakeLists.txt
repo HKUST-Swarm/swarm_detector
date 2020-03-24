@@ -54,6 +54,7 @@ include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${DARKNET_ROOT}/include
+  /usr/include/eigen3
 )
 
 
