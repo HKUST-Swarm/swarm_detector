@@ -22,7 +22,7 @@ SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 find_package(OpenCV 3.4 REQUIRED)
 
 set(ENABLE_BACKWARD true)
-set(ENABLE_DARKNET true)
+set(ENABLE_DARKNET false)
 set(ENABLE_TENSORRT true)
 
 set(DARKNET_ROOT $ENV{HOME}/source/darknet)
