@@ -6,8 +6,8 @@
 #include "opencv2/imgproc.hpp"
 #include "opencv2/highgui.hpp"
 #include <opencv2/cudaimgproc.hpp>
-#include <camera_model/camera_models/CameraFactory.h>
-#include <camera_model/camera_models/PinholeCamera.h>
+#include <camodocal/camera_models/PinholeCamera.h>
+#include <camodocal/camera_models/CameraFactory.h>
 #include "cv_bridge/cv_bridge.h"
 #include <experimental/filesystem>
 #include <opencv2/cudawarping.hpp>
@@ -18,14 +18,14 @@
 
 class FisheyeUndist {
 
-    camera_model::CameraPtr cam;
+    camodocal::CameraPtr cam;
 
     std::vector<cv::Mat> undistMaps;
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
 public:
-    camera_model::PinholeCameraPtr cam_top;
-    camera_model::PinholeCameraPtr cam_side;
+    camodocal::PinholeCameraPtr cam_top;
+    camodocal::PinholeCameraPtr cam_side;
     double f_side = 0;
     double f_center = 0;
     double cx_side = 0, cy_side = 0;

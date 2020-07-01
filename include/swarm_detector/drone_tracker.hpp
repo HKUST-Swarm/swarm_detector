@@ -3,7 +3,7 @@
 #include <opencv2/tracking.hpp>
 #include <map>
 #include <eigen3/Eigen/Eigen>
-#include <camera_model/camera_models/PinholeCamera.h>
+#include <camodocal/camera_models/PinholeCamera.h>
 
 static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
@@ -32,7 +32,7 @@ struct TrackedDrone {
     void update_position(
         Eigen::Vector3d tic, Eigen::Matrix3d ric, 
         Eigen::Matrix3d Rdrone,
-        camera_model::PinholeCameraPtr cam) {
+        camodocal::PinholeCameraPtr cam) {
         auto ypr = R2ypr(Rdrone, false);
         double yaw = ypr.x();
         Eigen::Vector3d p3d;
