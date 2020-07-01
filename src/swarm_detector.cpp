@@ -134,7 +134,7 @@ void SwarmDetector::onInit()
         last_detects.push_back(ros::Time(0));
         ROS_INFO("Init tracker on %d with P %f %f %f R", i, Pcam.x(), Pcam.y(), Pcam.z());
         std::cout << Rcam * Rvcams[i] << std::endl;
-        camera_model::PinholeCameraPtr cam = fisheye->cam_side;
+        camodocal::PinholeCameraPtr cam = fisheye->cam_side;
         if (i % 5 == 0)
         {
             cam = fisheye->cam_top;

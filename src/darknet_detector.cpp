@@ -1,8 +1,7 @@
 #include "swarm_detector/darknet_detector.hpp"
-#include "darknet.h"
 
 #ifdef USE_DARKNET
-
+#include "darknet.h"
 float m_table[256];
 void init_table()
 {

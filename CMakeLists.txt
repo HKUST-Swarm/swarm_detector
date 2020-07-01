@@ -66,7 +66,7 @@ add_library(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 
   ${OpenCV_LIBS}
-  camera_model
+  camera_models
 )
 
 if(ENABLE_DARKNET) 
