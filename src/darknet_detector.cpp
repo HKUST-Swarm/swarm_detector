@@ -1,6 +1,8 @@
 #include "swarm_detector/darknet_detector.hpp"
 #include "darknet.h"
 
+#ifdef USE_DARKNET
+
 float m_table[256];
 void init_table()
 {
@@ -69,3 +71,9 @@ std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvIm
     free_image(img);
     return ret;
 };
+#else
+std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvImg) {}
+DarknetDetector::DarknetDetector(std::string weights,
+                                 std::string cfg,
+                                 double thres, double overlap_thres): BaseDetector(thres, overlap_thres) {}
+#endif

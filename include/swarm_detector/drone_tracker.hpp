@@ -3,7 +3,7 @@
 #include <opencv2/tracking.hpp>
 #include <map>
 #include <eigen3/Eigen/Eigen>
-#include <camera_model/camera_models/PinholeCamera.h>
+#include <camodocal/camera_models/PinholeCamera.h>
 
 static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
@@ -32,7 +32,7 @@ struct TrackedDrone {
     void update_position(
         Eigen::Vector3d tic, Eigen::Matrix3d ric, 
         Eigen::Matrix3d Rdrone,
-        camera_model::PinholeCameraPtr cam) {
+        camodocal::PinholeCameraPtr cam) {
         auto ypr = R2ypr(Rdrone, false);
         double yaw = ypr.x();
         Eigen::Vector3d p3d;
@@ -75,7 +75,7 @@ struct TrackedDrone {
 class DroneTracker {
 
     std::map<int, cv::Ptr<cv::Tracker>> trackers;
-    camera_model::PinholeCameraPtr cam; 
+    camodocal::PinholeCameraPtr cam; 
 
     double focal_length;
     std::map<int, TrackedDrone> tracking_drones;
@@ -226,7 +226,7 @@ public:
 
     DroneTracker(Eigen::Vector3d _tic, 
                 Eigen::Matrix3d _ric, 
-                camera_model::PinholeCameraPtr _cam, 
+                camodocal::PinholeCameraPtr _cam, 
                 double _drone_scale, 
                 double _p_track, 
                 double _min_p,
@@ -243,7 +243,7 @@ public:
 
     DroneTracker(Eigen::Vector3d _tic, 
                 std::vector<Eigen::Matrix3d> _rics, 
-                camera_model::PinholeCameraPtr _cam, 
+                camodocal::PinholeCameraPtr _cam, 
                 double _drone_scale, 
                 double _p_track, 
                 double _min_p,

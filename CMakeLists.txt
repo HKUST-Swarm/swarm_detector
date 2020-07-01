@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   swarm_msgs
-  camera_model
+  camera_models
 )
 
 SET(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
