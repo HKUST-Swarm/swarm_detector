@@ -75,7 +75,7 @@ struct TrackedDrone {
 class DroneTracker {
 
     std::map<int, cv::Ptr<cv::Tracker>> trackers;
-    camera_model::PinholeCameraPtr cam; 
+    camodocal::PinholeCameraPtr cam; 
 
     double focal_length;
     std::map<int, TrackedDrone> tracking_drones;
@@ -94,7 +94,7 @@ class DroneTracker {
         //Match with swarm drones
         for(auto & it : swarm_drones) {
             printf("\n\n\n Match [%f,%f](%f) with %d\n", 
-                it.first, tdrone.center.x(), tdrone.center.y(), tdrone.bbox.width);
+                tdrone.center.x(), tdrone.center.y(), tdrone.bbox.width, it.first);
             auto dis2d = tdrone.distance_to_drone(it.second, tic, ric, Rdrone);
             double angle = acos(dis2d.x());
 
@@ -226,7 +226,7 @@ public:
 
     DroneTracker(Eigen::Vector3d _tic, 
                 Eigen::Matrix3d _ric, 
-                camera_model::PinholeCameraPtr _cam, 
+                camodocal::PinholeCameraPtr _cam, 
                 double _drone_scale, 
                 double _p_track, 
                 double _min_p,
@@ -243,7 +243,7 @@ public:
 
     DroneTracker(Eigen::Vector3d _tic, 
                 std::vector<Eigen::Matrix3d> _rics, 
-                camera_model::PinholeCameraPtr _cam, 
+                camodocal::PinholeCameraPtr _cam, 
                 double _drone_scale, 
                 double _p_track, 
                 double _min_p,

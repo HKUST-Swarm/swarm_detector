@@ -1,8 +1,12 @@
 #include "ros/ros.h"
 #include "opencv2/opencv.hpp"
+#ifdef USE_DARKNET
 #include "darknet.h"
+#endif
 
-class DarknetDetector
+#include "base_detector.hpp"
+
+class DarknetDetector : public BaseDetector
 {
 public:
     DarknetDetector(std::string weights,
@@ -11,10 +15,11 @@ public:
 
     //First is rect
     //Second is probaility
-    std::vector<std::pair<cv::Rect2d, double>> detect(cv::Mat &image);
+    virtual std::vector<std::pair<cv::Rect2d, double>> detect(cv::Mat &image) override;
 
 protected:
+#ifdef USE_DARKNET
     network *net;
-    double thres;
-    double overlap_thres;
+#endif
+
 };

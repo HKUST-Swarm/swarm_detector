@@ -12,7 +12,7 @@
 #include <opencv2/opencv.hpp>
 
 class FisheyeUndist;
-class DarknetDetector;
+class BaseDetector;
 class DroneTracker;
 struct TrackedDrone;
 
@@ -36,7 +36,7 @@ public:
 
 private:
     FisheyeUndist *fisheye = nullptr;
-    DarknetDetector *detector = nullptr;
+    BaseDetector *detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
     ros::Subscriber singleview_img_sub;
@@ -48,6 +48,9 @@ private:
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
     virtual void front_image_callback(const sensor_msgs::Image::ConstPtr &msg);
     virtual std::vector<TrackedDrone> virtual_cam_callback(cv::Mat & img, int direction, Swarm::Pose, cv::Mat & debug_img);
+    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::Mat & img1, cv::Mat & img2, int dir1, int dir2, Swarm::Pose drone_pose, cv::Mat & debug_img1, cv::Mat & debug_img2);
+    virtual std::vector<TrackedDrone> process_detect_result(cv::Mat & _img, int direction, 
+        std::vector<std::pair<cv::Rect2d, double>> detected_drones, Swarm::Pose pose_drone, cv::Mat & debug_img, bool has_detect);
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
     virtual void imu_callback(const sensor_msgs::Imu & imu_data);
     virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
@@ -55,6 +58,7 @@ private:
     bool debug_show = false;
     bool concat_for_tracking = false;
     bool enable_rear = false;
+    bool use_tensorrt = false;
     int width;
     int side_height;
     int yolo_height;

@@ -6,10 +6,9 @@
 #include "opencv2/imgproc.hpp"
 #include "opencv2/highgui.hpp"
 #include <opencv2/cudaimgproc.hpp>
-#include <camodocal/camera_models/PinholeCamera.h>
 #include <camodocal/camera_models/CameraFactory.h>
+#include <camodocal/camera_models/PinholeCamera.h>
 #include "cv_bridge/cv_bridge.h"
-#include <experimental/filesystem>
 #include <opencv2/cudawarping.hpp>
 
 #define DEG_TO_RAD (M_PI / 180.0)
@@ -38,7 +37,7 @@ public:
 
     FisheyeUndist(const std::string & camera_config_file, double _fov, bool _enable_cuda = true, int imgWidth = 600, int _cam_id = 0):
     imgWidth(imgWidth), fov(_fov), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda), cam_id(_cam_id) {
-        cam = camera_model::CameraFactory::instance()
+        cam = camodocal::CameraFactory::instance()
             ->generateCameraFromYamlFile(camera_config_file);
 
         undistMaps = generateAllUndistMap(cam, cameraRotation, imgWidth, fov);
@@ -92,7 +91,7 @@ public:
     }
 
 
-    std::vector<cv::Mat> generateAllUndistMap(camera_model::CameraPtr p_cam,
+    std::vector<cv::Mat> generateAllUndistMap(camodocal::CameraPtr p_cam,
                                           Eigen::Vector3d rotation,
                                           const unsigned &imgWidth,
                                           const double &fov //degree
@@ -134,13 +133,13 @@ public:
 
         // ROS_INFO("Pinhole cameras focal length: center %f side %f", f_center, f_side);
 
-        cam_top = camera_model::PinholeCameraPtr( new camera_model::PinholeCamera("top",
+        cam_top = camodocal::PinholeCameraPtr( new camodocal::PinholeCamera("top",
                   imgWidth, imgWidth,0, 0, 0, 0,
                   f_center, f_center, imgWidth/2, imgWidth/2));
          
         cx_side = imgWidth/2;
         cy_side = sideImgHeight/2;
-        cam_side = camera_model::PinholeCameraPtr(new camera_model::PinholeCamera("side",
+        cam_side = camodocal::PinholeCameraPtr(new camodocal::PinholeCamera("side",
                   imgWidth, sideImgHeight,0, 0, 0, 0,
                   f_side, f_side, imgWidth/2, sideImgHeight/2));
 
@@ -168,7 +167,7 @@ public:
     }
 
     cv::Mat genOneUndistMap(
-        camera_model::CameraPtr p_cam,
+        camodocal::CameraPtr p_cam,
         Eigen::Quaterniond rotation,
         const unsigned &imgWidth,
         const unsigned &imgHeight,

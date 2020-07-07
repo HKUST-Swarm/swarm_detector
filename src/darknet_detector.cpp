@@ -1,6 +1,7 @@
 #include "swarm_detector/darknet_detector.hpp"
-#include "darknet.h"
 
+#ifdef USE_DARKNET
+#include "darknet.h"
 float m_table[256];
 void init_table()
 {
@@ -30,15 +31,13 @@ image mat_to_image(const cv::Mat &mat) {
 
 DarknetDetector::DarknetDetector(std::string weights,
                                  std::string cfg,
-                                 double thres, double overlap_thres)
+                                 double thres, double overlap_thres): BaseDetector(thres, overlap_thres)
 {
     init_table();
     printf("Loading darknet weights from %s cfg from %s\n", weights.c_str(), cfg.c_str());
     printf("Yolo Thres %f Overlap %f\n", thres, overlap_thres);
     this->net = load_network((char *)cfg.c_str(), (char *)weights.c_str(), 0);
     set_batch_network(this->net, 0);
-    this->thres = thres;
-    this->overlap_thres = overlap_thres;
 }
 
 
@@ -71,3 +70,9 @@ std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvIm
     free_image(img);
     return ret;
 };
+#else
+std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvImg) {}
+DarknetDetector::DarknetDetector(std::string weights,
+                                 std::string cfg,
+                                 double thres, double overlap_thres): BaseDetector(thres, overlap_thres) {}
+#endif
