@@ -199,6 +199,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & _img, in
 
         cv::Rect roi(0, 0, _img.cols, _img.rows);
         detected_drones = detector->detect(_img);
+        printf("Detect squared cost %fms \n", t_d.toc());
     }
 
     return this->process_detect_result(_img, direction, detected_drones, pose_drone, debug_img, need_detect);
@@ -220,6 +221,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(cv::Mat & img1, cv
         auto ret = detector->detect(img1, img2);
         det1 = ret.first;
         det2 = ret.second;
+        printf("Detect squared of 2 images cost %fms\n", t_d.toc());
     }
 
     auto track1 = this->process_detect_result(img1, dir1, det1, pose_drone, debug_img1, need_detect);
@@ -459,6 +461,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     if (use_tensorrt) {
         //Detect on 512x512
         //top
+        TicToc tic;
         auto ret = virtual_cam_callback(img_cpus[VCAMERA_TOP], VCAMERA_TOP, pose_drone, debug_imgs[VCAMERA_TOP]);
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
 
@@ -471,6 +474,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         ret = virtual_cam_callback(img_cpus[VCAMERA_FRONT], img_cpus[VCAMERA_REAR], VCAMERA_FRONT, 
             VCAMERA_REAR, pose_drone, debug_imgs[VCAMERA_FRONT], debug_imgs[VCAMERA_REAR]);
 
+        printf("Whole detection & Tracking cost %fms", tic.toc());
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
 
     } else 
