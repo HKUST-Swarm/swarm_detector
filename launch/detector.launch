@@ -1,5 +1,5 @@
 <launch>
-  <arg name="device" />
+  <arg name="device" default="0"/>
   <arg name="manager" default="manager" />
   <arg name="show" default="false" />
   <arg name="image_topic" default="/pg_$(arg device)/image_raw" />
