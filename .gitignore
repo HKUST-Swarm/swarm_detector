@@ -1,2 +1,3 @@
 build/
 darknet/**
+config/drone_yolov3-tiny-kFLOAT.engine

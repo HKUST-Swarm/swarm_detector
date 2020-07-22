@@ -166,7 +166,7 @@ class DroneTracker {
         // int side_pos_id = floor(rect / top_size.width) + 1;
     }
 
-    bool update_bbox(cv::Rect2d rect, double p, cv::Mat & frame, TrackedDrone & drone) {
+    bool update_bbox(cv::Rect2d rect, double p, const cv::Mat & frame, TrackedDrone & drone) {
         //Simple use width as scale
         //Depth = f*DroneWidth(meter)/width(pixel)
         //InvDepth = width(pixel)/(f*width(meter))
@@ -260,7 +260,7 @@ public:
         
     }  
 
-    std::vector<TrackedDrone> track(cv::Mat & _img) {
+    std::vector<TrackedDrone> track(const cv::Mat & _img) {
         std::vector<TrackedDrone> ret;
         std::vector<int> failed_id;
         for (auto & it : trackers) {
@@ -295,7 +295,7 @@ public:
 
 
 
-    std::vector<TrackedDrone> process_detect(cv::Mat & img, std::vector<std::pair<cv::Rect2d, double>> detected_drones) {
+    std::vector<TrackedDrone> process_detect(const cv::Mat & img, std::vector<std::pair<cv::Rect2d, double>> detected_drones) {
         std::vector<TrackedDrone> ret;
 
         std::vector<TrackedDrone> new_tracked = track(img);
@@ -312,7 +312,7 @@ public:
         return ret;
     }
 
-    void start_tracker_tracking(int _id, cv::Mat & frame, cv::Rect2d bbox) {
+    void start_tracker_tracking(int _id, const cv::Mat & frame, cv::Rect2d bbox) {
         if (trackers.find(_id) != trackers.end()) {
             trackers.erase(_id);
         }

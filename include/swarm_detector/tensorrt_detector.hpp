@@ -21,15 +21,10 @@ public:
 
     }
 
-    virtual std::vector<std::pair<cv::Rect2d, double>> detect(cv::Mat &image) override {
+    virtual std::vector<std::pair<cv::Rect2d, double>> detect(const cv::Mat &image) override {
         std::vector<std::pair<cv::Rect2d, double>> ret;
 	    std::vector<Result> res;
     	detector.detect(image, res);
-        for (const auto &r : res) {
-		    std::cout << "id:" << r.id << " prob:" << r.prob << " rect:" << r.rect << std::endl;
-            ret.push_back(std::make_pair(r.rect, r.prob));
-            cv::rectangle(image, r.rect, cv::Scalar(255, 0, 0), 2);
-	    }
         return ret;
     }
 

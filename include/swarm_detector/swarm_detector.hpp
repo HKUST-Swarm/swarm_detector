@@ -46,15 +46,16 @@ private:
     ros::Subscriber odom_sub;
     ros::Subscriber imu_sub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
-    virtual void front_image_callback(const sensor_msgs::Image::ConstPtr &msg);
-    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::Mat & img, int direction, Swarm::Pose, cv::Mat & debug_img);
-    virtual std::vector<TrackedDrone> virtual_cam_callback(cv::Mat & img1, cv::Mat & img2, int dir1, int dir2, Swarm::Pose drone_pose, cv::Mat & debug_img1, cv::Mat & debug_img2);
-    virtual std::vector<TrackedDrone> process_detect_result(cv::Mat & _img, int direction, 
+    virtual void images_callback(const ros::Time & stamp, const std::vector<cv::Mat> imgs);
+    virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img, int direction, Swarm::Pose, cv::Mat & debug_img);
+    virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img1, const cv::Mat & img2, int dir1, int dir2, Swarm::Pose drone_pose, cv::Mat & debug_img1, cv::Mat & debug_img2);
+    virtual std::vector<TrackedDrone> process_detect_result(const cv::Mat & _img, int direction, 
         std::vector<std::pair<cv::Rect2d, double>> detected_drones, Swarm::Pose pose_drone, cv::Mat & debug_img, bool has_detect);
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
     virtual void imu_callback(const sensor_msgs::Imu & imu_data);
     virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
     virtual void publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones);
+    virtual Swarm::Pose get_pose_drone(const ros::Time &  stamp);
     bool debug_show = false;
     bool concat_for_tracking = false;
     bool enable_rear = false;
