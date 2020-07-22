@@ -13,6 +13,7 @@
     <remap from="~image_front" to="/flattener/fuck"/>
     <remap from="~odom" to="no_odom_now"/>
     <remap from="~imu" to="/dji_sdk_1/dji_sdk/imu"/>
+    <remap from="~vins_flattened" to="/vins_estimator/flattened_raw"/>
     <remap from="~swarm_fused_relative" to="/swarm_drones/swarm_drone_fused_relative" />
 
     <param name="cam_file" type="string" value="$(arg cam_file)" />
@@ -20,7 +21,6 @@
     <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />
     <param name="show" type="bool" value="$(arg show)" />
     <param name="pub_image" type="bool" value="$(arg pub_image)" />
-    <param name="enable_rear" type="bool" value="true" />
     <rosparam>
       thres: 0.2
       overlap_thres: 0.3
@@ -35,6 +35,7 @@
       acpt_inv_dep_thres: 0.5
       pub_track_result: false
       use_tensorrt: true
+      enable_rear: false
     </rosparam>
   </node>
 </launch>

@@ -10,6 +10,7 @@
 #include <swarm_msgs/Pose.h>
 #include <sensor_msgs/Imu.h>
 #include <opencv2/opencv.hpp>
+#include <vins/FlattenImages.h>
 
 class FisheyeUndist;
 class BaseDetector;
@@ -39,14 +40,15 @@ private:
     BaseDetector *detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
-    ros::Subscriber singleview_img_sub;
+    ros::Subscriber vins_imgs_sub;
     ros::Subscriber swarm_fused_sub;
     ros::Publisher swarm_detected_pub;
     ros::Publisher image_show_pub;
     ros::Subscriber odom_sub;
     ros::Subscriber imu_sub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
-    virtual void images_callback(const ros::Time & stamp, const std::vector<cv::Mat> imgs);
+    virtual void flattened_image_callback(const vins::FlattenImagesConstPtr & flattened);
+    virtual void images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> & imgs);
     virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img, int direction, Swarm::Pose, cv::Mat & debug_img);
     virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img1, const cv::Mat & img2, int dir1, int dir2, Swarm::Pose drone_pose, cv::Mat & debug_img1, cv::Mat & debug_img2);
     virtual std::vector<TrackedDrone> process_detect_result(const cv::Mat & _img, int direction, 

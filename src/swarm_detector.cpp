@@ -10,6 +10,7 @@
 #include <swarm_msgs/swarm_fused.h>
 #include <swarm_msgs/Pose.h>
 #include <chrono>
+#include <vins/FlattenImages.h>
 
 #define VCAMERA_TOP 0
 #define VCAMERA_LEFT 1
@@ -74,11 +75,11 @@ void SwarmDetector::onInit()
     double acpt_direction_thres;
     double acpt_inv_dep_thres;
 
-    nh.param<bool>("enable_rear", enable_rear, false);
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
     nh.param<bool>("pub_image", pub_image, true);
     nh.param<bool>("use_tensorrt", use_tensorrt, true);
+    nh.param<bool>("enable_rear", enable_rear, false);
     nh.param<bool>("pub_track_result", pub_track_result, true);
     nh.param<std::string>("weights", darknet_weights_path, "");
     nh.param<std::string>("darknet_cfg", darknet_cfg, "");
@@ -147,6 +148,7 @@ void SwarmDetector::onInit()
 
 
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
+    vins_imgs_sub = nh.subscribe("vins_flattened", 3, &SwarmDetector::flattened_image_callback, this);
     swarm_fused_sub = nh.subscribe("swarm_fused_relative", 3, &SwarmDetector::swarm_fused_callback, this);
     swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected", 3);
     odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
@@ -389,46 +391,69 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     auto cv_ptr = cv_bridge::toCvShare(msg, "rgb8");
 
     update_swarm_pose();
-    if (use_tensorrt) {
-        enable_rear = true;
-    }
 
     auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true, enable_rear);
     int total_imgs = imgs.size();
 
     std::vector<cv::Mat> img_cpus;
+    std::vector<const cv::Mat*> img_cpus_ptrs;
     img_cpus.resize(total_imgs);
     for (unsigned int i = 0; i < total_imgs; i++) {
         imgs[i].download(img_cpus[i]);
+        img_cpus_ptrs.push_back(&(img_cpus[i]));
     }
 
-    images_callback(cv_ptr->header.stamp, img_cpus);
+    images_callback(cv_ptr->header.stamp, img_cpus_ptrs);
 }
 
 
-void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<cv::Mat> imgs) {
+
+void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &flattened) {
+    std::vector<const cv::Mat *> img_cpus;
+    std::vector<cv_bridge::CvImageConstPtr> ptrs;
+    for (int i = 0; i < flattened->up_cams.size(); i++) {
+        if (flattened->up_cams[i].width > 0) {
+            auto cv_ptr = cv_bridge::toCvShare(flattened->up_cams[i], flattened, sensor_msgs::image_encodings::RGB8);
+            // auto cv_ptr = cv_bridge::toCvCopy(flattened->up_cams[i], sensor_msgs::image_encodings::BGR8);
+            ptrs.push_back(cv_ptr);
+            img_cpus.push_back(&(cv_ptr->image));
+        }
+    }
+
+    images_callback(flattened->header.stamp, img_cpus);
+}
+
+
+
+void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> &imgs) {
     int total_imgs = imgs.size();
     auto pose_drone = get_pose_drone(stamp);
     std::vector<TrackedDrone> track_drones;
 
-    std::vector<cv::Mat> debug_imgs;
-    debug_imgs.resize(total_imgs);
+    std::vector<cv::Mat> debug_imgs(5);
 
     if (use_tensorrt) {
         //Detect on 512x512
         //top
         TicToc tic;
-        auto ret = virtual_cam_callback(imgs[VCAMERA_TOP], VCAMERA_TOP, pose_drone, debug_imgs[VCAMERA_TOP]);
+        auto ret = virtual_cam_callback(*imgs[VCAMERA_TOP], VCAMERA_TOP, pose_drone, debug_imgs[VCAMERA_TOP]);
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
 
         //Left right
-        ret = virtual_cam_callback(imgs[VCAMERA_LEFT], imgs[VCAMERA_RIGHT], VCAMERA_LEFT, VCAMERA_RIGHT, 
+        ret = virtual_cam_callback(*imgs[VCAMERA_LEFT], *imgs[VCAMERA_RIGHT], VCAMERA_LEFT, VCAMERA_RIGHT, 
             pose_drone, debug_imgs[VCAMERA_LEFT], debug_imgs[VCAMERA_RIGHT]);
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
 
         //Front rear
-        ret = virtual_cam_callback(imgs[VCAMERA_FRONT], imgs[VCAMERA_REAR], VCAMERA_FRONT, 
-            VCAMERA_REAR, pose_drone, debug_imgs[VCAMERA_FRONT], debug_imgs[VCAMERA_REAR]);
+        if(enable_rear) {
+            assert("Rear must not be empty" && imgs.size()>=VCAMERA_REAR && !imgs[VCAMERA_REAR].empty());
+            ret = virtual_cam_callback(*imgs[VCAMERA_FRONT], *imgs[VCAMERA_REAR], VCAMERA_FRONT, 
+                VCAMERA_REAR, pose_drone, debug_imgs[VCAMERA_FRONT], debug_imgs[VCAMERA_REAR]);
+        } else {
+            static cv::Mat rear = cv::Mat::zeros(imgs[VCAMERA_FRONT]->rows, imgs[VCAMERA_FRONT]->cols, imgs[VCAMERA_FRONT]->type());
+            ret = virtual_cam_callback(*imgs[VCAMERA_FRONT], rear, VCAMERA_FRONT, 
+                VCAMERA_REAR, pose_drone, debug_imgs[VCAMERA_FRONT], debug_imgs[VCAMERA_REAR]);
+        }
 
         printf("Whole detection & Tracking cost %fms", tic.toc());
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
@@ -438,7 +463,7 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
         //Detect on 512x288
         for (int i = 0; i < total_imgs + 1; i++) {
             // ROS_INFO("V cam %d", i);
-            auto ret = virtual_cam_callback(imgs[i%total_imgs], i, pose_drone, debug_imgs[i%total_imgs]);
+            auto ret = virtual_cam_callback(*imgs[i%total_imgs], i, pose_drone, debug_imgs[i%total_imgs]);
             track_drones.insert(track_drones.end(), ret.begin(), ret.end());
         }
     }
