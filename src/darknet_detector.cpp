@@ -41,7 +41,7 @@ DarknetDetector::DarknetDetector(std::string weights,
 }
 
 
-std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvImg)
+std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(const cv::Mat &cvImg)
 {
     image img = mat_to_image(cvImg);
 
@@ -71,7 +71,7 @@ std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvIm
     return ret;
 };
 #else
-std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(cv::Mat &cvImg) {}
+std::vector<std::pair<cv::Rect2d, double>> DarknetDetector::detect(const cv::Mat &cvImg) {}
 DarknetDetector::DarknetDetector(std::string weights,
                                  std::string cfg,
                                  double thres, double overlap_thres): BaseDetector(thres, overlap_thres) {}

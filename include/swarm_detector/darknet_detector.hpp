@@ -15,7 +15,7 @@ public:
 
     //First is rect
     //Second is probaility
-    virtual std::vector<std::pair<cv::Rect2d, double>> detect(cv::Mat &image) override;
+    virtual std::vector<std::pair<cv::Rect2d, double>> detect(const cv::Mat &image) override;
 
 protected:
 #ifdef USE_DARKNET
