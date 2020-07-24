@@ -14,7 +14,7 @@
 #define DEG_TO_RAD (M_PI / 180.0)
 
 
-
+namespace swarm_detector_pkg{
 class FisheyeUndist {
 
     camodocal::CameraPtr cam;
@@ -219,3 +219,4 @@ public:
 
 };
 
+}

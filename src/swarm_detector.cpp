@@ -58,7 +58,7 @@ namespace swarm_detector_pkg
 
 void SwarmDetector::onInit()
 {
-    ros::NodeHandle nh = this->getPrivateNodeHandle();
+    ros::NodeHandle nh = this->getMTPrivateNodeHandle();
 
 
     std::string darknet_weights_path;
@@ -99,16 +99,15 @@ void SwarmDetector::onInit()
     nh.param<double>("acpt_direction_thres", acpt_direction_thres, 10);
     //Is in pixels
     nh.param<double>("acpt_inv_dep_thres", acpt_inv_dep_thres, 10);
-
     cv::Mat R, T;
 
     FILE *fh = fopen(extrinsic_path.c_str(), "r");
     if (fh == NULL)
     {
         ROS_WARN("config_file dosen't exist; Assume identity camera pose");
-	Rcam = Eigen::Matrix3d::Identity();
-	Pcam = Eigen::Vector3d(0.105, 0.004614, 0.0898);
-	std::cout << "Translation" << Pcam;
+	    Rcam = Eigen::Matrix3d::Identity();
+	    Pcam = Eigen::Vector3d(0.105, 0.004614, 0.0898);
+	    std::cout << "Translation" << Pcam;
     }
     else
     {
@@ -128,9 +127,10 @@ void SwarmDetector::onInit()
     }
 
     fisheye = new FisheyeUndist(camera_config_file, fov, true, width);
-
     side_height = fisheye->sideImgHeight;
-    for (int i = 0; i < 6; i++) {
+
+
+    for (int i = 0; i < 5; i++) {
         last_detects.push_back(ros::Time(0));
         ROS_INFO("Init tracker on %d with P %f %f %f R", i, Pcam.x(), Pcam.y(), Pcam.z());
         std::cout << Rcam * Rvcams[i] << std::endl;
@@ -455,6 +455,16 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         imgs[i].download(img_cpus[i]);
     }
 
+void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> &imgs) {
+
+    if ((stamp - last_stamp).toSec() < detect_duration) {
+        return;
+    }
+
+    last_stamp = stamp;
+
+    int total_imgs = imgs.size();
+    auto pose_drone = get_pose_drone(stamp);
     std::vector<TrackedDrone> track_drones;
     if (use_tensorrt) {
         //Detect on 512x512
@@ -471,6 +481,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         ret = virtual_cam_callback(img_cpus[VCAMERA_FRONT], img_cpus[VCAMERA_REAR], VCAMERA_FRONT, 
             VCAMERA_REAR, pose_drone, debug_imgs[VCAMERA_FRONT], debug_imgs[VCAMERA_REAR]);
 
+        ROS_INFO("Whole detection & Tracking cost %fms", tic.toc());
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
 
     } else 

@@ -1,5 +1,5 @@
 <launch>
-  <arg name="device" />
+  <arg name="device" default="0"/>
   <arg name="manager" default="manager" />
   <arg name="show" default="false" />
   <arg name="image_topic" default="/pg_$(arg device)/image_raw" />
@@ -27,7 +27,7 @@
       fov: 235
       width: 512
       show_width: 800
-      detect_duration: 0.0
+      detect_duration: 1.0
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.6

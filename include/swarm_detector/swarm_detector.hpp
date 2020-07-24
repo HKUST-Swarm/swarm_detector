@@ -11,7 +11,6 @@
 #include <sensor_msgs/Imu.h>
 #include <opencv2/opencv.hpp>
 
-class FisheyeUndist;
 class BaseDetector;
 class DroneTracker;
 struct TrackedDrone;
@@ -20,6 +19,8 @@ typedef std::tuple<ros::Time, Eigen::Quaterniond, Eigen::Vector3d> EigenPoseStam
 
 namespace swarm_detector_pkg
 {
+
+class FisheyeUndist;
 class SwarmDetector : public nodelet::Nodelet
 {
 public:
@@ -30,7 +31,6 @@ public:
         Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //2 front
         Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //3 right
         Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //4 rear
-        Rvcams.push_back(Eigen::Quaterniond::Identity());                                             //5 top (down half)
         t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
     }
 
@@ -78,6 +78,8 @@ private:
     Eigen::Matrix3d Rcam = Eigen::Matrix3d::Identity();
 
     void update_swarm_pose();
+
+    ros::Time last_stamp;
     
     //This is in fake body frame(yaw only)
     std::map<int, Eigen::Vector3d> swarm_positions;
