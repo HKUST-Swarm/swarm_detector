@@ -1,13 +1,13 @@
 <launch>
   <arg name="device" default="0"/>
-  <arg name="manager" default="swarm_manager" />
+  <arg name="manager" default="manager" />
   <arg name="show" default="false" />
   <arg name="image_topic" default="/pg_$(arg device)/image_raw" />
   <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591762_camera_calib.yaml" />
   <arg name="output" default="screen" />
   <arg name="pub_image" default="false" />
 
-  <!-- <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="$(arg output)" /> -->
+  <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="$(arg output)" />
   <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="$(arg output)">
     <remap from="~image_raw" to="$(arg image_topic)"/>
     <remap from="~image_front" to="/flattener/fuck"/>
@@ -25,9 +25,9 @@
       thres: 0.2
       overlap_thres: 0.3
       fov: 235
-      width: 512
+      width: 400
       show_width: 800
-      detect_duration: 1.0
+      detect_duration: 0.33
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.6

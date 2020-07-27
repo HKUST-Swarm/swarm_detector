@@ -402,6 +402,24 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         imgs[i].download(img_cpus[i]);
         img_cpus_ptrs.push_back(&(img_cpus[i]));
     }
+    // images_callback(img_cpus_ptrs);
+}
+
+void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &flattened) {
+    std::vector<const cv::Mat *> img_cpus;
+    std::vector<cv_bridge::CvImageConstPtr> ptrs;
+    for (int i = 0; i < flattened->up_cams.size(); i++) {
+        if (flattened->up_cams[i].width > 0) {
+            auto cv_ptr = cv_bridge::toCvShare(flattened->up_cams[i], flattened, sensor_msgs::image_encodings::RGB8);
+            // auto cv_ptr = cv_bridge::toCvCopy(flattened->up_cams[i], sensor_msgs::image_encodings::BGR8);
+            ptrs.push_back(cv_ptr);
+            img_cpus.push_back(&(cv_ptr->image));
+        }
+    }
+
+    images_callback(flattened->header.stamp, img_cpus);
+}
+
 
 void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> &imgs) {
 
