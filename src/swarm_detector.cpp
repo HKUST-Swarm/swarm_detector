@@ -410,7 +410,7 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
     std::vector<cv_bridge::CvImageConstPtr> ptrs;
     for (int i = 0; i < flattened->up_cams.size(); i++) {
         if (flattened->up_cams[i].width > 0) {
-            auto cv_ptr = cv_bridge::toCvShare(flattened->up_cams[i], flattened, sensor_msgs::image_encodings::RGB8);
+            auto cv_ptr = cv_bridge::toCvShare(flattened->up_cams[i], flattened);
             // auto cv_ptr = cv_bridge::toCvCopy(flattened->up_cams[i], sensor_msgs::image_encodings::BGR8);
             ptrs.push_back(cv_ptr);
             img_cpus.push_back(&(cv_ptr->image));
