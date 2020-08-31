@@ -17,8 +17,10 @@
     <remap from="~swarm_fused_relative" to="/swarm_drones/swarm_drone_fused_relative" />
 
     <param name="cam_file" type="string" value="$(arg cam_file)" />
-    <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
-    <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />
+    <!-- <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
+    <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />     -->
+    <param name="weights" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.weights" />
+    <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.cfg" />
     <param name="show" type="bool" value="$(arg show)" />
     <param name="pub_image" type="bool" value="$(arg pub_image)" />
     <rosparam>

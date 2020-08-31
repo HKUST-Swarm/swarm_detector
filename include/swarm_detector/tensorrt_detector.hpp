@@ -17,6 +17,7 @@ public:
         config.calibration_image_list_file_txt = "";
         config.inference_precison = FP32;
         config.detect_thresh = _thres;
+        config.net_type = YOLOV4;
         detector.init(config);
 
     }
