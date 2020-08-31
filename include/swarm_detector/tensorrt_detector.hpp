@@ -17,15 +17,22 @@ public:
         config.calibration_image_list_file_txt = "";
         config.inference_precison = FP32;
         config.detect_thresh = _thres;
-        config.net_type = YOLOV4;
+        config.net_type = YOLOV4_TINY;
         detector.init(config);
 
     }
 
     virtual std::vector<std::pair<cv::Rect2d, double>> detect(const cv::Mat &image) override {
         std::vector<std::pair<cv::Rect2d, double>> ret;
-	    std::vector<Result> res;
-    	detector.detect(image, res);
+        std::vector<cv::Mat> imgs;
+        imgs.emplace_back(image);
+	    std::vector<BatchResult> ress;
+    	detector.detect(imgs, ress);
+
+        for (auto det : ress[0]) {
+            ret.push_back(std::make_pair(det.rect, det.prob));
+        }
+
         return ret;
     }
 
