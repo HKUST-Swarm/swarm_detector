@@ -307,9 +307,9 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
     sd.is_6d_detect = false;
     auto &detected_nodes = sd.detected_nodes_xyz_yaw;
     for (TrackedDrone &tdrone : drones) {
-        if (tdrone._id >= MAX_DRONE_ID) {
-            continue;
-        }
+        // if (tdrone._id >= MAX_DRONE_ID) {
+            // continue;
+        // }
         ROS_INFO("Pub drone %d", tdrone._id);
         node_detected_xyzyaw nd;
         nd.dpos.x = tdrone.unit_p_body_yaw_only.x();
