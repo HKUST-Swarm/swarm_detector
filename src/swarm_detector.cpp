@@ -458,8 +458,8 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
                 VCAMERA_REAR, pose_drone, debug_imgs[VCAMERA_FRONT], debug_imgs[VCAMERA_REAR]);
         }
 
-        ROS_INFO("Whole detection & Tracking cost %fms", tic.toc());
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
+        ROS_INFO("Whole detection & Tracking cost %fms Total Targets %ld", tic.toc(), track_drones.size());
 
     } else 
     {
