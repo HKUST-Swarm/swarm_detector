@@ -82,7 +82,7 @@ class DroneTracker {
 
     std::map<int, Eigen::Vector3d> swarm_drones;
 
-    int last_create_id = rand()%1000*100;
+    int last_create_id = rand()%100+100;
     double p_track;
 
     int match_id(TrackedDrone &tdrone) {
