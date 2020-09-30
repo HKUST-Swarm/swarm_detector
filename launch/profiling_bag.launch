@@ -2,14 +2,13 @@
   <arg name="device" default="0"/>
   <arg name="manager" default="manager" />
   <arg name="show" default="false" />
-  <arg name="image_topic" default="/pg_$(arg device)/image_raw" />
-  <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591762_camera_calib.yaml" />
+  <arg name="cam_file" default="/home/dji/SwarmConfig/fisheye_ptgrey_n3/up.yaml" />
   <arg name="output" default="screen" />
   <arg name="pub_image" default="false" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="$(arg output)" />
   <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="$(arg output)">
-    <remap from="~image_raw" to="$(arg image_topic)"/>
+    <remap from="~image_raw" to="/stereo/left/image_raw"/>
     <remap from="~image_front" to="/flattener/fuck"/>
     <remap from="~odom" to="no_odom_now"/>
     <remap from="~imu" to="/dji_sdk_1/dji_sdk/imu"/>
@@ -17,8 +16,6 @@
     <remap from="~swarm_fused_relative" to="/swarm_drones/swarm_drone_fused_relative" />
 
     <param name="cam_file" type="string" value="$(arg cam_file)" />
-    <!-- <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
-    <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />     -->
     <param name="weights" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.weights" />
     <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.cfg" />
     <param name="show" type="bool" value="$(arg show)" />
@@ -27,7 +24,7 @@
       thres: 0.4
       overlap_thres: 0.3
       fov: 235
-      width: 400
+      width: 512
       show_width: 800
       detect_duration: 1.0
       p_track: 0.98

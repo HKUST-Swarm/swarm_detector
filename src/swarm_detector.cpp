@@ -402,7 +402,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         imgs[i].download(img_cpus[i]);
         img_cpus_ptrs.push_back(&(img_cpus[i]));
     }
-    // images_callback(img_cpus_ptrs);
+    images_callback(msg->header.stamp, img_cpus_ptrs);
 }
 
 void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &flattened) {

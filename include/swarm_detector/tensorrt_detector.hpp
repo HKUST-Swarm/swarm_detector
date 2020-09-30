@@ -15,7 +15,7 @@ public:
         config.file_model_cfg = cfg;
         config.file_model_weights = weights;
         config.calibration_image_list_file_txt = "";
-        config.inference_precison = FP32;
+        config.inference_precison = FP16;
         config.detect_thresh = _thres;
         config.net_type = YOLOV4_TINY;
         detector.init(config);
