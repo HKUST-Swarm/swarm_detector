@@ -439,11 +439,13 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
         //Detect on 512x512
         //top
         TicToc tic;
-        auto ret = virtual_cam_callback(*imgs[VCAMERA_TOP], VCAMERA_TOP, pose_drone, debug_imgs[VCAMERA_TOP]);
-        track_drones.insert(track_drones.end(), ret.begin(), ret.end());
+        if (!(*imgs[VCAMERA_TOP]).empty()) {
+            auto ret = virtual_cam_callback(*imgs[VCAMERA_TOP], VCAMERA_TOP, pose_drone, debug_imgs[VCAMERA_TOP]);
+            track_drones.insert(track_drones.end(), ret.begin(), ret.end());
+        }
 
         //Left right
-        ret = virtual_cam_callback(*imgs[VCAMERA_LEFT], *imgs[VCAMERA_RIGHT], VCAMERA_LEFT, VCAMERA_RIGHT, 
+        auto ret = virtual_cam_callback(*imgs[VCAMERA_LEFT], *imgs[VCAMERA_RIGHT], VCAMERA_LEFT, VCAMERA_RIGHT, 
             pose_drone, debug_imgs[VCAMERA_LEFT], debug_imgs[VCAMERA_RIGHT]);
         track_drones.insert(track_drones.end(), ret.begin(), ret.end());
 
