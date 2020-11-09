@@ -27,6 +27,8 @@ public:
         cv::Mat rectup(rectangle, cv::Rect(dx, 0, image1.cols, image1.rows));
         cv::Mat rectdown(rectangle, cv::Rect(dx, image1.rows, image1.cols, image1.rows));
 
+        assert(!image1.empty() && "Image 1 must not be empty");
+        assert(!image2.empty() && "Image 2 must not be empty");
         image1.copyTo(rectup);
         image2.copyTo(rectdown);
         // cv::imshow("Rectangle Image", rectangle);

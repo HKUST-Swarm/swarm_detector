@@ -404,7 +404,7 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
     }
     images_callback(msg->header.stamp, img_cpus_ptrs);
 }
-
+cv::Mat img_empty;
 void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &flattened) {
     std::vector<const cv::Mat *> img_cpus;
     std::vector<cv_bridge::CvImageConstPtr> ptrs;
@@ -414,6 +414,8 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
             // auto cv_ptr = cv_bridge::toCvCopy(flattened->up_cams[i], sensor_msgs::image_encodings::BGR8);
             ptrs.push_back(cv_ptr);
             img_cpus.push_back(&(cv_ptr->image));
+        } else {
+            img_cpus.push_back(&img_empty);
         }
     }
 
@@ -435,6 +437,7 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
 
     std::vector<cv::Mat> debug_imgs(5);
 
+    // ROS_INFO("images_callback images %d", total_imgs);
     if (use_tensorrt) {
         //Detect on 512x512
         //top
