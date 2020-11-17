@@ -24,15 +24,15 @@
     <param name="show" type="bool" value="$(arg show)" />
     <param name="pub_image" type="bool" value="$(arg pub_image)" />
     <rosparam>
-      thres: 0.3
-      overlap_thres: 0.3
+      thres: 0.1
+      overlap_thres: 0.1
       fov: 235
       width: 400
       show_width: 800
       detect_duration: 1.0
       p_track: 0.98
       min_p: 0.1
-      drone_scale: 0.6
+      drone_scale: 0.32
       acpt_direction_thres: 0.15
       acpt_inv_dep_thres: 0.5
       pub_track_result: false
