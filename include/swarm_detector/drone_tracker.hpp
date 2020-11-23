@@ -82,7 +82,7 @@ class DroneTracker {
 
     std::map<int, Eigen::Vector3d> swarm_drones;
 
-    int last_create_id = rand()%1000*100;
+    int last_create_id = rand()%100+100;
     double p_track;
 
     int match_id(TrackedDrone &tdrone) {
@@ -171,7 +171,11 @@ class DroneTracker {
         //Depth = f*DroneWidth(meter)/width(pixel)
         //InvDepth = width(pixel)/(f*width(meter))
         drone = TrackedDrone(-1, rect, ((double)rect.width)/(drone_scale*focal_length), p);
+
         drone.update_position(tic, ric, Rdrone, cam);
+        printf("Process detected drone: depth %f prob %f witdth %f(f:%f) center %f %f\n", 1/drone.inv_dep, p,
+            rect.width, focal_length, rect.x + rect.width/2, rect.y + rect.y/2
+        );
 
         int _id = match_id(drone);
 
