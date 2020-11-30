@@ -25,7 +25,9 @@ public:
     virtual std::vector<std::pair<cv::Rect2d, double>> detect(const cv::Mat &image) override {
         std::vector<std::pair<cv::Rect2d, double>> ret;
         std::vector<cv::Mat> imgs;
-        imgs.emplace_back(image);
+        cv::Mat img;
+        cv::cvtColor(image, img, cv::COLOR_BGR2RGB);
+        imgs.emplace_back(img);
 	    std::vector<BatchResult> ress;
     	detector.detect(imgs, ress);
 

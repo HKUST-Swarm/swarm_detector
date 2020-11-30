@@ -113,11 +113,13 @@ void SwarmDetector::onInit()
     else
     {
         cv::FileStorage fsSettings(extrinsic_path, cv::FileStorage::READ);
+        cv::Mat _T;
+        fsSettings["body_T_cam0"] >> _T;
 
-        fsSettings["R"] >> R;
-        fsSettings["T"] >> T;
-        cv::cv2eigen(R, Rcam);
-        cv::cv2eigen(T, Pcam);
+        Eigen::Matrix4d T;
+        cv::cv2eigen(_T, T);
+        Rcam = T.block<3, 3>(0, 0);
+        Pcam = T.block<3, 1>(0, 3);
         fsSettings.release();
     }
 
