@@ -15,7 +15,7 @@ public:
         config.file_model_cfg = cfg;
         config.file_model_weights = weights;
         config.calibration_image_list_file_txt = "";
-        config.inference_precison = FP16;
+        //config.inference_precison = FP16;
         config.detect_thresh = _thres;
         config.net_type = YOLOV4_TINY;
         detector.init(config);
@@ -26,7 +26,8 @@ public:
         std::vector<std::pair<cv::Rect2d, double>> ret;
         std::vector<cv::Mat> imgs;
         cv::Mat img;
-        cv::cvtColor(image, img, cv::COLOR_BGR2RGB);
+        // cv::cvtColor(image, img, cv::COLOR_BGR2RGB);
+        img = image;
         imgs.emplace_back(img);
 	    std::vector<BatchResult> ress;
     	detector.detect(imgs, ress);

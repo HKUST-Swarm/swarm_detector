@@ -7,16 +7,14 @@
 
 static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
-#define PIXEL_COEFF 0.5
+#define INV_DEP_COEFF 0.5
 #define MAX_DRONE_ID 100
 
 struct TrackedDrone {
     int _id;
 
     cv::Rect2d bbox;
-    Eigen::Vector3d unit_p_body;
     Eigen::Vector3d unit_p_cam;
-    Eigen::Vector3d unit_p_body_yaw_only;
     double probaility = 1.0;
     double inv_dep = 0;
     Eigen::Vector2d center;
@@ -33,40 +31,28 @@ struct TrackedDrone {
         Eigen::Vector3d tic, Eigen::Matrix3d ric, 
         Eigen::Matrix3d Rdrone,
         camodocal::PinholeCameraPtr cam) {
-        auto ypr = R2ypr(Rdrone, false);
-        double yaw = ypr.x();
         Eigen::Vector3d p3d;
         cam->liftProjective(center, p3d);
         unit_p_cam = p3d.normalized();
-        unit_p_body = ric * p3d;
-        unit_p_body.normalize();
-
-        //No scale so assume camera is on CG
-        unit_p_body_yaw_only = Rdrone*unit_p_body;
-        unit_p_body_yaw_only = Eigen::AngleAxisd(-yaw, Eigen::Vector3d::UnitZ()) * unit_p_body_yaw_only;
-        unit_p_body_yaw_only.normalize();
     }
 
     //Return a virtual distance
     Eigen::Vector2d distance_to_drone(Eigen::Vector3d _pos, Eigen::Vector3d tic, Eigen::Matrix3d ric, Eigen::Matrix3d Rdrone, double focal_length = 256, double scale = 0.6) {
-        std::cout << "EST Pos" <<  _pos.transpose() << std::endl;
-        Eigen::Vector3d d_body = _pos - tic;
-        double _inv_dep = 1/d_body.norm();
-        d_body.normalize();
+        // std::cout <<"Fused Pbody"<< Rdrone.transpose() * _pos << std::endl;
+        // std::cout <<"Fused Pcam_iden"<< Rdrone.transpose() * _pos  - tic << std::endl;;
+        Eigen::Vector3d d_cam = ric.transpose() * (Rdrone.transpose() * _pos - tic);
+        double _inv_dep = 1/d_cam.norm();
+        d_cam.normalize();
 
         double est_bbx_width = _inv_dep*focal_length*scale;
-	    ROS_INFO("Inv Dep width est drone (%f,%f) this (%f,%f)", 
-                _inv_dep, est_bbx_width,
-                inv_dep, this->bbox.width);
-        std::cout << "P detection" << unit_p_body << std::endl;
-        std::cout << "P estimate" << d_body << std::endl;
-        return Eigen::Vector2d(d_body.adjoint()*unit_p_body, 
-                est_bbx_width - this->bbox.width);
+	    printf("Fused Pos [%3.2f, %3.2f,%3.2f]: inv_dep detection: %f fused %f ", _pos.x(), _pos.y(), _pos.z(), _inv_dep, inv_dep);
+        std::cout << "Pcam detection: " << unit_p_cam.transpose() << " Pcam fused:" << d_cam.transpose() << std::endl;
+        return Eigen::Vector2d(d_cam.adjoint()*unit_p_cam, inv_dep - _inv_dep);
     }
 
     //Return a virtual distance
     Eigen::Vector2d distance_to_drone(TrackedDrone tracked_drone) {
-        return Eigen::Vector2d(tracked_drone.unit_p_cam.adjoint()*unit_p_cam, bbox.width - tracked_drone.bbox.width);
+        return Eigen::Vector2d(tracked_drone.unit_p_cam.adjoint()*unit_p_cam, inv_dep - tracked_drone.inv_dep);
     }
 };
 
@@ -93,31 +79,30 @@ class DroneTracker {
 
         //Match with swarm drones
         for(auto & it : swarm_drones) {
-            printf("\n\n\n Match [%f,%f](%f) with %d\n", 
-                tdrone.center.x(), tdrone.center.y(), tdrone.bbox.width, it.first);
+            printf("Matching with %d. ", it.first);
             auto dis2d = tdrone.distance_to_drone(it.second, tic, ric, Rdrone);
             double angle = acos(dis2d.x());
 
             double d_est = (ric.transpose()*(it.second - tic)).z();
             double w_det = tdrone.bbox.width;
-            double pixel_error = fabs(dis2d.y())/w_det;
+            double inv_dep_error = fabs(dis2d.y());
             double angle_error = fabs(angle*d_est/(drone_scale));
 
-
-            ROS_INFO("Match with est %d dis [%f, %f] angle [%f] err [%f/%f, %f/%f] D EST %f", it.first, 
-		        dis2d.x(), dis2d.y(),
-		        angle*180/M_PI, angle_error, accept_direction_thres,
-		        pixel_error, accept_inv_depth_thres, 
-                d_est) ;
-
-
-            if (angle_error < accept_direction_thres && pixel_error < accept_inv_depth_thres) {
-                if (angle + PIXEL_COEFF*pixel_error < best_cost) {
-                    best_cost = angle + PIXEL_COEFF*pixel_error;
-                    best_id = it.first;
-                    ROS_INFO("Matched on estimate drone %d...", best_id);
-                    matched_on_estimate_drone = true;
-                }
+            if (angle_error < accept_direction_thres && inv_dep_error < accept_inv_depth_thres && angle + INV_DEP_COEFF*inv_dep_error < best_cost) {
+                best_cost = angle + INV_DEP_COEFF*inv_dep_error;
+                best_id = it.first;
+                matched_on_estimate_drone = true;
+                ROS_INFO("Match success with fused %d dis [%f, %f] angle [%f] err [%f/%f, %f/%f] D EST %f", it.first, 
+                    dis2d.x(), dis2d.y(),
+                    angle*180/M_PI, angle_error, accept_direction_thres,
+                    inv_dep_error, accept_inv_depth_thres, 
+                    d_est) ;
+            } else {
+                ROS_INFO("Match failed with fused %d dis [%f, %f] angle [%f] err [%f/%f, %f/%f] D EST %f", it.first, 
+                    dis2d.x(), dis2d.y(),
+                    angle*180/M_PI, angle_error, accept_direction_thres,
+                    inv_dep_error, accept_inv_depth_thres, 
+                    d_est) ;
             }
         }
 
@@ -139,9 +124,9 @@ class DroneTracker {
 		        pixel_error, accept_inv_depth_thres);
 
             if (angle < accept_direction_thres && pixel_error < accept_inv_depth_thres) {
-                if (angle + PIXEL_COEFF*pixel_error < best_cost) {
+                if (angle + INV_DEP_COEFF*pixel_error < best_cost) {
                     if (matched_on_estimate_drone && it.first < MAX_DRONE_ID)
-                    best_cost = angle + PIXEL_COEFF*pixel_error;
+                    best_cost = angle + INV_DEP_COEFF*pixel_error;
                     best_id_tracker = it.first;
                     ROS_INFO("Matched on tracker drone %d...", best_id);
                 }
@@ -173,7 +158,7 @@ class DroneTracker {
         drone = TrackedDrone(-1, rect, ((double)rect.width)/(drone_scale*focal_length), p);
 
         drone.update_position(tic, ric, Rdrone, cam);
-        printf("Process detected drone: depth %f prob %f witdth %f(f:%f) center %f %f\n", 1/drone.inv_dep, p,
+        printf("Process detected drone: depth %3.2f prob %3.2f width %3.0f(f:%3.1f) center (%3.2f,%3.2f)\n", 1/drone.inv_dep, p,
             rect.width, focal_length, rect.x + rect.width/2, rect.y + rect.y/2
         );
 
@@ -302,7 +287,7 @@ public:
     std::vector<TrackedDrone> process_detect(const cv::Mat & img, std::vector<std::pair<cv::Rect2d, double>> detected_drones) {
         std::vector<TrackedDrone> ret;
 
-        std::vector<TrackedDrone> new_tracked = track(img);
+        //std::vector<TrackedDrone> new_tracked = track(img);
 
         //We only pub out detected drones; 
         //Tracked drones now is only for matching id

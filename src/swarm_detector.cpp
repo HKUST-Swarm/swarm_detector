@@ -95,6 +95,7 @@ void SwarmDetector::onInit()
     nh.param<double>("drone_scale", drone_scale, 0.6);
     nh.param<double>("p_track", p_track, 0.95);
     nh.param<double>("min_p", min_p, -1);
+    nh.param<int>("drone_id", self_id, -1);
 
     //Is in degree
     nh.param<double>("acpt_direction_thres", acpt_direction_thres, 10);
@@ -151,28 +152,26 @@ void SwarmDetector::onInit()
 
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
     vins_imgs_sub = nh.subscribe("vins_flattened", 3, &SwarmDetector::flattened_image_callback, this);
-    swarm_fused_sub = nh.subscribe("swarm_fused_relative", 3, &SwarmDetector::swarm_fused_callback, this);
+    swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
     swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected", 3);
     odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
-    imu_sub = nh.subscribe("imu", 10, &SwarmDetector::imu_callback, this);
+    // imu_sub = nh.subscribe("imu", 10, &SwarmDetector::imu_callback, this);
 
     image_show_pub = nh.advertise<sensor_msgs::Image>("show", 1);
     
     ROS_INFO("Finish initialize swarm detector, wait for data\n");
 }
 
-
-
-
-void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf) {
+void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused & sf) {
     Eigen::AngleAxisd rotate_by_yaw(sf.self_yaw, Eigen::Vector3d::UnitZ());
     for (unsigned int i = 0; i < sf.ids.size(); i ++ ) {
-        swarm_positions[sf.ids[i]] = rotate_by_yaw * Eigen::Vector3d(
-                sf.relative_drone_position[i].x,
-                sf.relative_drone_position[i].y,
-                sf.relative_drone_position[i].z
-        );
-
+        if (self_id != sf.ids[i]) {
+            swarm_positions[sf.ids[i]] = rotate_by_yaw * Eigen::Vector3d(
+                    sf.local_drone_position[i].x,
+                    sf.local_drone_position[i].y,
+                    sf.local_drone_position[i].z
+            );
+        }
     }
 }
 
@@ -202,7 +201,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(const cv::Mat & _i
 
         cv::Rect roi(0, 0, _img.cols, _img.rows);
         detected_drones = detector->detect(_img);
-        printf("Detect squared cost %fms \n", t_d.toc());
+        ROS_INFO("Detect squared cost %fms \n", t_d.toc());
     }
 
     return this->process_detect_result(_img, direction, detected_drones, pose_drone, debug_img, need_detect);
@@ -224,7 +223,7 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(const cv::Mat & im
         auto ret = detector->detect(img1, img2);
         det1 = ret.first;
         det2 = ret.second;
-        printf("Detect squared of 2 images cost %fms\n", t_d.toc());
+        ROS_INFO("Detect squared of 2 images cost %fms\n", t_d.toc());
     }
 
     auto track1 = this->process_detect_result(img1, dir1, det1, pose_drone, debug_img1, need_detect);
@@ -295,9 +294,9 @@ void SwarmDetector::odometry_callback(const nav_msgs::Odometry & odom) {
 
 
 void SwarmDetector::imu_callback(const sensor_msgs::Imu & imu_data) {
-    Eigen::Quaterniond quat(imu_data.orientation.w, imu_data.orientation.x, imu_data.orientation.y, imu_data.orientation.z);
-    auto tup = std::make_pair(imu_data.header.stamp, Swarm::Pose(quat, Eigen::Vector3d::Zero()));
-    pose_buf.push(tup);
+    // Eigen::Quaterniond quat(imu_data.orientation.w, imu_data.orientation.x, imu_data.orientation.y, imu_data.orientation.z);
+    // auto tup = std::make_pair(imu_data.header.stamp, Swarm::Pose(quat, Eigen::Vector3d::Zero()));
+    // pose_buf.push(tup);
 }
 
 
@@ -312,11 +311,11 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
         // if (tdrone._id >= MAX_DRONE_ID) {
             // continue;
         // }
-        ROS_INFO("Pub drone %d", tdrone._id);
+        // ROS_INFO("Pub drone %d", tdrone._id);
         node_detected_xyzyaw nd;
-        nd.dpos.x = tdrone.unit_p_body_yaw_only.x();
-        nd.dpos.y = tdrone.unit_p_body_yaw_only.y();
-        nd.dpos.z = tdrone.unit_p_body_yaw_only.z();
+        // nd.dpos.x = tdrone.unit_p_body_yaw_only.x();
+        // nd.dpos.y = tdrone.unit_p_body_yaw_only.y();
+        // nd.dpos.z = tdrone.unit_p_body_yaw_only.z();
 
         nd.enable_scale = true;
         nd.is_yaw_valid = false;
@@ -439,10 +438,8 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
 
     std::vector<cv::Mat> debug_imgs(5);
 
-    // ROS_INFO("images_callback images %d", total_imgs);
     if (use_tensorrt) {
         //Detect on 512x512
-        //top
         TicToc tic;
         if (!(*imgs[VCAMERA_TOP]).empty()) {
             auto ret = virtual_cam_callback(*imgs[VCAMERA_TOP], VCAMERA_TOP, pose_drone, debug_imgs[VCAMERA_TOP]);
@@ -486,19 +483,22 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
         cv::Mat _show_l2;
         cv::Mat _show_l3;
         _show = debug_imgs[0];
+        if (_show.empty()) {
+            _show = cv::Mat(cv::Size(debug_imgs[1].rows, debug_imgs[1].rows), CV_8UC3, cv::Scalar(0 , 0, 0));
+        }
+
+        if (debug_imgs[4].empty()) {
+            debug_imgs[4] = cv::Mat(cv::Size(debug_imgs[1].rows, debug_imgs[1].cols), CV_8UC3, cv::Scalar(0 , 0, 0));
+        }
+
         cv::resize(_show, _show, cv::Size(debug_imgs[1].rows, debug_imgs[1].rows));
         cv::hconcat(_show, debug_imgs[1], _show);
         cv::hconcat(_show, debug_imgs[2], _show);
 
-        cv::hconcat(debug_imgs[1], debug_imgs[2], _show_l2);
-        // cv::Mat empty();
-        cv::hconcat(_show_l2, debug_imgs[2], _show_l2);
-        
+        cv::hconcat(debug_imgs[3], debug_imgs[4], _show_l2);
 
         cv::resize(_show_l2, _show_l2, cv::Size(0, 0), 
             ((double) _show.cols)/ _show_l2.cols,  ((double) _show.cols)/ _show_l2.cols) ;
-
-        std::cout << _show.size() << "-" << _show_l2.size() << std::endl;
 
         cv::vconcat(_show, _show_l2, _show);
 
@@ -506,7 +506,7 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
         cv::line(_show, cv::Point(_show.cols*2/3, 0), cv::Point(_show.cols*2/3, _show.rows), cv::Scalar(255, 255, 255));
 
         double f_resize = ((double)show_width) / (double)_show.cols;
-        cv::cvtColor(_show, _show, cv::COLOR_RGB2BGR);
+        // cv::cvtColor(_show, _show, cv::COLOR_RGB2BGR);
 
         cv::resize(_show, _show, cv::Size(), f_resize, f_resize);
 
