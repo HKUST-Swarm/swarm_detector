@@ -18,6 +18,10 @@ struct TrackedDrone {
     double probaility = 1.0;
     double inv_dep = 0;
     Eigen::Vector2d center;
+    Eigen::Matrix3d Rdrone;
+    Eigen::Matrix3d ric;
+    Eigen::Vector3d tic;
+    camodocal::PinholeCameraPtr cam;
     TrackedDrone() {}
 
     TrackedDrone(int id, cv::Rect2d _rect, double _inv_dep, double _p):
@@ -28,12 +32,29 @@ struct TrackedDrone {
 
     //This is self camera position and quat
     void update_position(
-        Eigen::Vector3d tic, Eigen::Matrix3d ric, 
-        Eigen::Matrix3d Rdrone,
-        camodocal::PinholeCameraPtr cam) {
+        Eigen::Vector3d _tic, Eigen::Matrix3d _ric, 
+        Eigen::Matrix3d _Rdrone,
+        camodocal::PinholeCameraPtr _cam) {
         Eigen::Vector3d p3d;
-        cam->liftProjective(center, p3d);
+        cam = _cam;
+        Rdrone = _Rdrone;
+        ric = _ric;
+        tic = _tic;
+
+        _cam->liftProjective(center, p3d);
         unit_p_cam = p3d.normalized();
+    }
+
+    std::pair<Eigen::Vector3d, double> get_body_pose_yaw_only() {
+        Eigen::Vector3d unit_p_body = ric * unit_p_cam / inv_dep + tic;
+        unit_p_body.normalize();
+        auto unit_p_local = Rdrone*unit_p_body;
+        double _inv_dep = 1/unit_p_local.norm();
+        auto ypr = R2ypr(Rdrone, false);
+        double yaw = ypr.x();
+        auto unit_p_body_yaw_only = Eigen::AngleAxisd(-yaw, Eigen::Vector3d::UnitZ()) * unit_p_local;
+        unit_p_body_yaw_only.normalize();
+        return std::make_pair(unit_p_body_yaw_only, _inv_dep);
     }
 
     //Return a virtual distance
@@ -45,7 +66,7 @@ struct TrackedDrone {
         d_cam.normalize();
 
         double est_bbx_width = _inv_dep*focal_length*scale;
-	    printf("Fused Pos [%3.2f, %3.2f,%3.2f]: inv_dep detection: %f fused %f ", _pos.x(), _pos.y(), _pos.z(), _inv_dep, inv_dep);
+	    printf("Fused Pos [%3.2f, %3.2f,%3.2f]: inv_dep detection: %f fused %f\n", _pos.x(), _pos.y(), _pos.z(), _inv_dep, inv_dep);
         std::cout << "Pcam detection: " << unit_p_cam.transpose() << " Pcam fused:" << d_cam.transpose() << std::endl;
         return Eigen::Vector2d(d_cam.adjoint()*unit_p_cam, inv_dep - _inv_dep);
     }

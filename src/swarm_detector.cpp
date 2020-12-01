@@ -311,11 +311,11 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
         // if (tdrone._id >= MAX_DRONE_ID) {
             // continue;
         // }
-        // ROS_INFO("Pub drone %d", tdrone._id);
         node_detected_xyzyaw nd;
-        // nd.dpos.x = tdrone.unit_p_body_yaw_only.x();
-        // nd.dpos.y = tdrone.unit_p_body_yaw_only.y();
-        // nd.dpos.z = tdrone.unit_p_body_yaw_only.z();
+        auto det = tdrone.get_body_pose_yaw_only();
+        nd.dpos.x = det.first.x();
+        nd.dpos.y = det.first.y();
+        nd.dpos.z = det.first.z();
 
         nd.enable_scale = true;
         nd.is_yaw_valid = false;
@@ -323,7 +323,12 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
         nd.remote_drone_id = tdrone._id;
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
-        nd.inv_dep = tdrone.inv_dep;
+        nd.inv_dep = det.second;
+
+        ROS_INFO("Pub drone %ld dir: [%3.2f, %3.2f, %3.2f] dep %3.2f", tdrone._id, 
+            nd.dpos.x, nd.dpos.y, nd.dpos.z,
+            1/nd.inv_dep
+        );
 
         detected_nodes.push_back(nd);
     }

@@ -31,7 +31,7 @@
       fov: 235
       width: 400
       show_width: 800
-      detect_duration: 0.1
+      detect_duration: 0.5
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.32
