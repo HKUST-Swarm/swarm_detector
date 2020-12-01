@@ -1,0 +1,45 @@
+<launch>
+  <arg name="device" default="0"/>
+  <arg name="manager" default="manager" />
+  <arg name="show" default="false" />
+  <arg name="image_topic" default="/pg_$(arg device)/image_raw" />
+  <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591762_camera_calib.yaml" />
+  <arg name="output" default="screen" />
+  <arg name="pub_image" default="false" />
+
+  <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="$(arg output)" />
+  <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="$(arg output)">
+    <remap from="~image_raw" to="$(arg image_topic)"/>
+    <remap from="~image_front" to="/flattener/fuck"/>
+    <remap from="~odometry" to="/vins_estimator/imu_propagate"/>
+    <remap from="~imu" to="/dji_sdk_1/dji_sdk/imu"/>
+    <remap from="~vins_flattened" to="/vins_estimator/flattened_raw"/>
+    <remap from="~swarm_fused" to="/swarm_drones/swarm_drone_fused" />
+
+    <param name="cam_file" type="string" value="$(arg cam_file)" />
+    <!-- <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
+    <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />     -->
+    <param name="weights" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.weights" />
+    <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.cfg" />
+    <param name="show" type="bool" value="$(arg show)" />
+    <param name="pub_image" type="bool" value="$(arg pub_image)" />
+    <param name="drone_id" type="int" value="1" />
+    <param name="extrinsic_path" type="string" value="/home/dji/SwarmConfig/fisheye_ptgrey_n3/fisheye_cuda.yaml" />
+    <rosparam>
+      thres: 0.1
+      overlap_thres: 0.1
+      fov: 235
+      width: 400
+      show_width: 800
+      detect_duration: 0.1
+      p_track: 0.98
+      min_p: 0.1
+      drone_scale: 0.32
+      acpt_direction_thres: 0.15
+      acpt_inv_dep_thres: 0.5
+      pub_track_result: false
+      use_tensorrt: true
+      enable_rear: false
+    </rosparam>
+  </node>
+</launch>
