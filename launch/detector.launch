@@ -6,6 +6,7 @@
   <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591762_camera_calib.yaml" />
   <arg name="output" default="screen" />
   <arg name="pub_image" default="false" />
+  <arg name="drone_id" default="1" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="$(arg output)" />
   <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="$(arg output)">
@@ -23,7 +24,7 @@
     <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.cfg" />
     <param name="show" type="bool" value="$(arg show)" />
     <param name="pub_image" type="bool" value="$(arg pub_image)" />
-    <param name="drone_id" type="int" value="1" />
+    <param name="drone_id" type="int" value="$(arg drone_id)" />
     <param name="extrinsic_path" type="string" value="/home/dji/SwarmConfig/fisheye_ptgrey_n3/fisheye_cuda.yaml" />
     <rosparam>
       thres: 0.6
