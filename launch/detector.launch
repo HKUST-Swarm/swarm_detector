@@ -26,7 +26,7 @@
     <param name="drone_id" type="int" value="1" />
     <param name="extrinsic_path" type="string" value="/home/dji/SwarmConfig/fisheye_ptgrey_n3/fisheye_cuda.yaml" />
     <rosparam>
-      thres: 0.1
+      thres: 0.6
       overlap_thres: 0.1
       fov: 235
       width: 400
@@ -35,8 +35,8 @@
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.32
-      acpt_direction_thres: 0.15
-      acpt_inv_dep_thres: 0.5
+      acpt_direction_thres: 0.3
+      acpt_inv_dep_thres: 0.8
       pub_track_result: false
       use_tensorrt: true
       enable_rear: false

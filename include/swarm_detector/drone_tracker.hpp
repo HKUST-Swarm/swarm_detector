@@ -41,6 +41,10 @@ struct TrackedDrone {
         ric = _ric;
         tic = _tic;
 
+        //Ignore Extrinsic XY since the camera is at middle of the drone.
+        tic.x() = 0;
+        tic.y() = 0;
+
         _cam->liftProjective(center, p3d);
         unit_p_cam = p3d.normalized();
     }
