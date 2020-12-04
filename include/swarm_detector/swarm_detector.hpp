@@ -56,7 +56,7 @@ private:
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
     virtual void imu_callback(const sensor_msgs::Imu & imu_data);
     virtual void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
-    virtual void publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones);
+    virtual void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones);
     virtual Swarm::Pose get_pose_drone(const ros::Time &  stamp);
     bool debug_show = false;
     bool concat_for_tracking = false;

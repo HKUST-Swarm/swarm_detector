@@ -11,6 +11,7 @@
 #include <swarm_msgs/Pose.h>
 #include <chrono>
 #include <vins/FlattenImages.h>
+#include <swarm_msgs/swarm_lcm_converter.hpp>
 
 #define VCAMERA_TOP 0
 #define VCAMERA_LEFT 1
@@ -153,7 +154,7 @@ void SwarmDetector::onInit()
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
     vins_imgs_sub = nh.subscribe("vins_flattened", 3, &SwarmDetector::flattened_image_callback, this);
     swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
-    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected", 3);
+    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected_raw", 3);
     odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
     // imu_sub = nh.subscribe("imu", 10, &SwarmDetector::imu_callback, this);
 
@@ -301,7 +302,7 @@ void SwarmDetector::imu_callback(const sensor_msgs::Imu & imu_data) {
 
 
 
-void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedDrone> drones) {
+void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones) {
     swarm_detected sd;
     sd.header.stamp = stamp;
     sd.self_drone_id = -1;
@@ -324,6 +325,9 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, std::vector<TrackedD
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
         nd.inv_dep = det.second;
+
+        local_pose_self.set_yaw_only();
+        nd.local_pose_self = local_pose_self.to_ros_pose();
 
         ROS_INFO("Pub drone %ld dir: [%3.2f, %3.2f, %3.2f] dep %3.2f", tdrone._id, 
             nd.dpos.x, nd.dpos.y, nd.dpos.z,
@@ -480,7 +484,7 @@ void SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<c
         }
     }
 
-    publish_tracked_drones(stamp, track_drones);
+    publish_tracked_drones(stamp, pose_drone, track_drones);
 
     if (debug_show || pub_image)
     {
