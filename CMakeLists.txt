@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(swarm_detector)
 
-add_compile_options(-std=c++11 -O3 -g)
+add_compile_options(-std=c++14 -O3 -g)
 
 set(CMAKE_BUILD_TYPE "Release")
 
