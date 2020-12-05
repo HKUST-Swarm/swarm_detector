@@ -305,7 +305,7 @@ void SwarmDetector::imu_callback(const sensor_msgs::Imu & imu_data) {
 void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones) {
     swarm_detected sd;
     sd.header.stamp = stamp;
-    sd.self_drone_id = -1;
+    sd.self_drone_id = self_id;
     sd.is_6d_detect = false;
     auto &detected_nodes = sd.detected_nodes_xyz_yaw;
     for (TrackedDrone &tdrone : drones) {
