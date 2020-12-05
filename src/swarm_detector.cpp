@@ -320,7 +320,7 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
 
         nd.enable_scale = true;
         nd.is_yaw_valid = false;
-        nd.self_drone_id = -1;
+        nd.self_drone_id = self_id;
         nd.remote_drone_id = tdrone._id;
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
