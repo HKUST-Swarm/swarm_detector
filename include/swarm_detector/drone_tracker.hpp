@@ -63,8 +63,8 @@ struct TrackedDrone {
 
     //Return a virtual distance
     Eigen::Vector2d distance_to_drone(Eigen::Vector3d _pos, Eigen::Vector3d tic, Eigen::Matrix3d ric, Eigen::Matrix3d Rdrone, double focal_length = 256, double scale = 0.6) {
-        // std::cout <<"Fused Pbody"<< Rdrone.transpose() * _pos << std::endl;
-        // std::cout <<"Fused Pcam_iden"<< Rdrone.transpose() * _pos  - tic << std::endl;;
+        std::cout <<"Fused Pbody"<< (Rdrone.transpose() * _pos).transpose() << std::endl;
+        std::cout <<"Detec Pbody"<< (ric * unit_p_cam / inv_dep + tic).transpose() << std::endl;
         Eigen::Vector3d d_cam = ric.transpose() * (Rdrone.transpose() * _pos - tic);
         double _inv_dep = 1/d_cam.norm();
         d_cam.normalize();

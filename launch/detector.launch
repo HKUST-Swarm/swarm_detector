@@ -36,7 +36,7 @@
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.32
-      acpt_direction_thres: 0.6
+      acpt_direction_thres: 1.0
       acpt_inv_dep_thres: 0.8
       pub_track_result: false
       use_tensorrt: true
