@@ -68,6 +68,7 @@ void SwarmDetector::onInit()
     std::string camera_config_file;
     std::string extrinsic_path;
     bool track_matched_only = false;
+    bool tensorrt_fp16 = false;
     double fov = 235;
     double thres, overlap_thres;
     double drone_scale;
@@ -82,6 +83,7 @@ void SwarmDetector::onInit()
     nh.param<bool>("use_tensorrt", use_tensorrt, true);
     nh.param<bool>("enable_rear", enable_rear, false);
     nh.param<bool>("pub_track_result", pub_track_result, true);
+    nh.param<bool>("tensorrt_fp16", tensorrt_fp16, true);
     nh.param<std::string>("weights", darknet_weights_path, "");
     nh.param<std::string>("darknet_cfg", darknet_cfg, "");
     nh.param<std::string>("cam_file", camera_config_file, "");
@@ -126,7 +128,7 @@ void SwarmDetector::onInit()
     }
 
     if(use_tensorrt) {
-        detector = new TensorRTDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres);
+        detector = new TensorRTDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres, tensorrt_fp16);
     } else {
         detector = new DarknetDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres);
     }

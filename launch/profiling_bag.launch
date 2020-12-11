@@ -35,6 +35,7 @@
       pub_track_result: false
       use_tensorrt: true
       enable_rear: false
+      tensorrt_fp16: true
     </rosparam>
   </node>
 </launch>
