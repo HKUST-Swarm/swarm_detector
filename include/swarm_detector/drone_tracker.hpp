@@ -51,7 +51,7 @@ struct TrackedDrone {
 
     std::pair<Eigen::Vector3d, double> get_body_pose_yaw_only() {
         Eigen::Vector3d unit_p_body = ric * unit_p_cam / inv_dep + tic;
-        double _inv_dep = 1/unit_p_local.norm();
+        double _inv_dep = 1/unit_p_body.norm();
         unit_p_body.normalize();
         auto unit_p_local = Rdrone*unit_p_body;
         auto ypr = R2ypr(Rdrone, false);
