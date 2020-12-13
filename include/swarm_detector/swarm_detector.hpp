@@ -69,6 +69,8 @@ private:
     bool pub_image = false;
     bool pub_track_result = false;
     double detect_duration = 0.5;
+
+    double sf_latest = 0;
     int self_id;
 
     std::vector<Eigen::Quaterniond> Rvcams;

@@ -176,6 +176,8 @@ void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused & sf) {
             );
         }
     }
+
+    sf_latest = sf.header.stamp.toSec();
 }
 
 void SwarmDetector::update_swarm_pose() {
@@ -418,6 +420,8 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
 }
 cv::Mat img_empty;
 void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &flattened) {
+    ROS_INFO("sf_latest.t - flattened.t %5.2f", (sf_latest - flattened->header.stamp.toSec())*1000);
+
     std::vector<const cv::Mat *> img_cpus;
     std::vector<cv_bridge::CvImageConstPtr> ptrs;
     for (int i = 0; i < flattened->up_cams.size(); i++) {
