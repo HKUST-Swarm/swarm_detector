@@ -49,20 +49,18 @@ struct TrackedDrone {
         unit_p_cam = p3d.normalized();
     }
 
-    std::pair<Eigen::Vector3d, double> get_body_pose_yaw_only() {
-        Eigen::Vector3d unit_p_body = ric * unit_p_cam / inv_dep + tic;
-        double _inv_dep = 1/unit_p_body.norm();
-        unit_p_body.normalize();
-        auto unit_p_local = Rdrone*unit_p_body;
-        auto ypr = R2ypr(Rdrone, false);
-        double yaw = ypr.x();
-        auto unit_p_body_yaw_only = Eigen::AngleAxisd(-yaw, Eigen::Vector3d::UnitZ()) * unit_p_local;
-        unit_p_body_yaw_only.normalize();
-        return std::make_pair(unit_p_body_yaw_only, _inv_dep);
+    //Note this function return in cam frame, not virtual cam
+    //R*ret = ric*unit_p_cam
+    //ret = R^T*ric*unit_p_cam
+    std::pair<Eigen::Vector3d, double> get_cam_pose_yaw_only(Eigen::Matrix3d R) {
+        Eigen::Vector3d _unit_p_cam = R.transpose() * ric * unit_p_cam; 
+        return std::make_pair(_unit_p_cam, inv_dep);
     }
 
     //Return a virtual distance
     Eigen::Vector2d distance_to_drone(Eigen::Vector3d _pos, Eigen::Vector3d tic, Eigen::Matrix3d ric, Eigen::Matrix3d Rdrone, double focal_length = 256, double scale = 0.6) {
+        auto ypr_drone =  R2ypr(Rdrone, false);
+        Rdrone = Eigen::AngleAxisd(-ypr_drone(0), Eigen::Vector3d(0, 0, 1)) * Rdrone;
         std::cout <<"Fused Pbody"<< (Rdrone.transpose() * _pos).transpose() << std::endl;
         std::cout <<"Detec Pbody"<< (ric * unit_p_cam / inv_dep + tic).transpose() << std::endl;
         Eigen::Vector3d d_cam = ric.transpose() * (Rdrone.transpose() * _pos - tic);
@@ -88,6 +86,7 @@ class DroneTracker {
     std::map<int, cv::Ptr<cv::Tracker>> trackers;
     camodocal::PinholeCameraPtr cam; 
 
+    bool enable_tracker = false;
     double focal_length;
     std::map<int, TrackedDrone> tracking_drones;
 
@@ -133,27 +132,29 @@ class DroneTracker {
 
         int best_id_tracker = -1;
 
-        //Match with trackers
-        for (auto & it: tracking_drones) {
-            auto dis2d = tdrone.distance_to_drone(it.second);
-            double angle = acos(dis2d.x());
-            
-            //Maybe we should compare only bounding box for tracker drone
-            double w_det = tdrone.bbox.width;
-            double pixel_error = fabs(dis2d.y())/w_det;
-            double angle_error = fabs(angle/(drone_scale*it.second.inv_dep));
+        if(enable_tracker) {
+            //Match with trackers
+            for (auto & it: tracking_drones) {
+                auto dis2d = tdrone.distance_to_drone(it.second);
+                double angle = acos(dis2d.x());
+                
+                //Maybe we should compare only bounding box for tracker drone
+                double w_det = tdrone.bbox.width;
+                double pixel_error = fabs(dis2d.y())/w_det;
+                double angle_error = fabs(angle/(drone_scale*it.second.inv_dep));
 
-            ROS_INFO("Match tracker %d dis [%f, %f] err [%f/%f, %f/%f]", it.first, 
-		        dis2d.x(), dis2d.y(),
-		        angle*180.0/M_PI, accept_direction_thres,
-		        pixel_error, accept_inv_depth_thres);
+                ROS_INFO("Match tracker %d dis [%f, %f] err [%f/%f, %f/%f]", it.first, 
+                    dis2d.x(), dis2d.y(),
+                    angle*180.0/M_PI, accept_direction_thres,
+                    pixel_error, accept_inv_depth_thres);
 
-            if (angle < accept_direction_thres && pixel_error < accept_inv_depth_thres) {
-                if (angle + INV_DEP_COEFF*pixel_error < best_cost) {
-                    if (matched_on_estimate_drone && it.first < MAX_DRONE_ID)
-                    best_cost = angle + INV_DEP_COEFF*pixel_error;
-                    best_id_tracker = it.first;
-                    ROS_INFO("Matched on tracker drone %d...", best_id);
+                if (angle < accept_direction_thres && pixel_error < accept_inv_depth_thres) {
+                    if (angle + INV_DEP_COEFF*pixel_error < best_cost) {
+                        if (matched_on_estimate_drone && it.first < MAX_DRONE_ID)
+                        best_cost = angle + INV_DEP_COEFF*pixel_error;
+                        best_id_tracker = it.first;
+                        ROS_INFO("Matched on tracker drone %d...", best_id);
+                    }
                 }
             }
         }
@@ -201,7 +202,9 @@ class DroneTracker {
             tracking_drones.erase(_id);
         }
 
-        start_tracker_tracking(_id, frame, rect);
+        if (enable_tracker) {
+            start_tracker_tracking(_id, frame, rect);
+        }
 
         ROS_INFO("New detected drone: %d", _id);
 
@@ -246,11 +249,12 @@ public:
                 double _min_p,
                 double _accept_direction_thres,
                 double _accept_inv_depth_thres,
-                bool _track_matched_only):
+                bool _track_matched_only, bool _enable_tracker):
         tic(_tic), ric(_ric), cam(_cam), focal_length(cam->getParameters().fx()), drone_scale(_drone_scale), p_track(_p_track), min_p(_min_p), 
         accept_direction_thres(_accept_direction_thres),
         accept_inv_depth_thres(_accept_inv_depth_thres),
-        track_matched_only(_track_matched_only)
+        track_matched_only(_track_matched_only),
+        enable_tracker(_enable_tracker)
     {
         //std::cout << "Tracker ric" << ric << "tic:" << tic << std::endl;
     }   

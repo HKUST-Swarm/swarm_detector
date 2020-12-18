@@ -6,7 +6,7 @@
 #include <queue>
 #include <tuple>
 #include <nav_msgs/Odometry.h>
-#include <swarm_msgs/swarm_fused.h>
+#include <swarm_msgs/swarm_fused_relative.h>
 #include <swarm_msgs/Pose.h>
 #include <sensor_msgs/Imu.h>
 #include <opencv2/opencv.hpp>
@@ -55,7 +55,7 @@ private:
         std::vector<std::pair<cv::Rect2d, double>> detected_drones, Swarm::Pose pose_drone, cv::Mat & debug_img, bool has_detect);
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
     virtual void imu_callback(const sensor_msgs::Imu & imu_data);
-    virtual void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
+    virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
     virtual void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones);
     virtual Swarm::Pose get_pose_drone(const ros::Time &  stamp);
     bool debug_show = false;
@@ -83,6 +83,8 @@ private:
 
     Eigen::Vector3d Pcam = Eigen::Vector3d::Zero();
     Eigen::Matrix3d Rcam = Eigen::Matrix3d::Identity();
+
+    Swarm::Pose extrinsic;
 
     void update_swarm_pose();
 

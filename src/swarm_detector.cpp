@@ -119,12 +119,18 @@ void SwarmDetector::onInit()
         cv::FileStorage fsSettings(extrinsic_path, cv::FileStorage::READ);
         cv::Mat _T;
         fsSettings["body_T_cam0"] >> _T;
+        fsSettings["image_width"] >> width;
 
         Eigen::Matrix4d T;
         cv::cv2eigen(_T, T);
         Rcam = T.block<3, 3>(0, 0);
         Pcam = T.block<3, 1>(0, 3);
+        extrinsic = Swarm::Pose(Rcam, Pcam);
         fsSettings.release();
+
+        ROS_INFO("Camera width %d, Pose", width);
+        std::cout << "R" << Rcam << std::endl;
+        std::cout << "P" << Pcam.transpose() << std::endl;
     }
 
     if(use_tensorrt) {
@@ -148,14 +154,14 @@ void SwarmDetector::onInit()
         }
         drone_trackers.push_back(
             new DroneTracker(Pcam, Rcam * Rvcams[i], cam, drone_scale, p_track, min_p,
-                             acpt_direction_thres, acpt_inv_dep_thres, track_matched_only));
+                             acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, pub_track_result));
     }
 
 
 
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
     vins_imgs_sub = nh.subscribe("vins_flattened", 3, &SwarmDetector::flattened_image_callback, this);
-    swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
+    swarm_fused_sub = nh.subscribe("swarm_fused_relative", 3, &SwarmDetector::swarm_fused_callback, this);
     swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected_raw", 3);
     odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
     // imu_sub = nh.subscribe("imu", 10, &SwarmDetector::imu_callback, this);
@@ -165,14 +171,14 @@ void SwarmDetector::onInit()
     ROS_INFO("Finish initialize swarm detector, wait for data\n");
 }
 
-void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused & sf) {
+void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf) {
     Eigen::AngleAxisd rotate_by_yaw(sf.self_yaw, Eigen::Vector3d::UnitZ());
     for (unsigned int i = 0; i < sf.ids.size(); i ++ ) {
         if (self_id != sf.ids[i]) {
             swarm_positions[sf.ids[i]] = rotate_by_yaw * Eigen::Vector3d(
-                    sf.local_drone_position[i].x,
-                    sf.local_drone_position[i].y,
-                    sf.local_drone_position[i].z
+                    sf.relative_drone_position[i].x,
+                    sf.relative_drone_position[i].y,
+                    sf.relative_drone_position[i].z
             );
         }
     }
@@ -317,10 +323,17 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
             // continue;
         // }
         node_detected_xyzyaw nd;
-        auto det = tdrone.get_body_pose_yaw_only();
-        nd.dpos.x = det.first.x();
-        nd.dpos.y = det.first.y();
-        nd.dpos.z = det.first.z();
+        auto det = tdrone.get_cam_pose_yaw_only(Rcam);
+        Eigen::Vector3d p_cam = det.first;
+        Swarm::Pose pose_cam = local_pose_self*extrinsic;
+        Swarm::Pose pose_cam_yaw_only = pose_cam;
+        pose_cam_yaw_only.set_yaw_only();
+        Eigen::Vector3d p_cam_only = pose_cam_yaw_only.att().inverse() * pose_cam.att() * p_cam;
+        nd.local_pose_self = pose_cam_yaw_only.to_ros_pose();
+
+        nd.dpos.x = p_cam_only.x();
+        nd.dpos.y = p_cam_only.y();
+        nd.dpos.z = p_cam_only.z();
 
         nd.enable_scale = true;
         nd.is_yaw_valid = false;
@@ -330,13 +343,13 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         nd.probaility = tdrone.probaility;
         nd.inv_dep = det.second;
 
-        local_pose_self.set_yaw_only();
-        nd.local_pose_self = local_pose_self.to_ros_pose();
 
-        ROS_INFO("Pub drone %ld dir: [%3.2f, %3.2f, %3.2f] dep %3.2f", tdrone._id, 
+        ROS_INFO("Pub drone %ld dir: [%3.2f, %3.2f, %3.2f] dep %3.2f Cam Pose", tdrone._id, 
             nd.dpos.x, nd.dpos.y, nd.dpos.z,
             1/nd.inv_dep
         );
+
+        pose_cam_yaw_only.print();
 
         detected_nodes.push_back(nd);
     }
