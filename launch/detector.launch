@@ -46,6 +46,7 @@
       acpt_direction_thres: 2.0
       acpt_inv_dep_thres: 0.8
       pub_track_result: false
+      pub_anonymous: false
       use_tensorrt: true
       enable_rear: false
       tensorrt_fp16: true

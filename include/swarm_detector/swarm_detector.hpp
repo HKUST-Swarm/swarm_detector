@@ -62,6 +62,7 @@ private:
     bool concat_for_tracking = false;
     bool enable_rear = false;
     bool use_tensorrt = false;
+    bool pub_anonymous = false;
     int width;
     int side_height;
     int yolo_height;

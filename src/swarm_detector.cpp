@@ -99,6 +99,7 @@ void SwarmDetector::onInit()
     nh.param<double>("p_track", p_track, 0.95);
     nh.param<double>("min_p", min_p, -1);
     nh.param<int>("drone_id", self_id, -1);
+    nh.param<bool>("pub_anonymous", pub_anonymous, false);
 
     //Is in degree
     nh.param<double>("acpt_direction_thres", acpt_direction_thres, 10);
@@ -319,9 +320,9 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
     sd.is_6d_detect = false;
     auto &detected_nodes = sd.detected_nodes_xyz_yaw;
     for (TrackedDrone &tdrone : drones) {
-        // if (tdrone._id >= MAX_DRONE_ID) {
-            // continue;
-        // }
+        if (!pub_anonymous && tdrone._id >= MAX_DRONE_ID) {
+            continue;
+        }
         node_detected_xyzyaw nd;
         auto det = tdrone.get_cam_pose_yaw_only(Rcam);
         Eigen::Vector3d p_cam = det.first;
