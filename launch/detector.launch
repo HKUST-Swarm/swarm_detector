@@ -12,6 +12,7 @@
   <arg name="swarm_fused" default="/swarm_drones/swarm_drone_fused"/>
   <arg name="swarm_fused_relative" default="/swarm_drones/swarm_drone_fused_relative"/>
   <arg name="width" default="400" />
+  <arg name="enable_rear" default="false" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager --no-bond" output="$(arg output)"  />
 
@@ -31,6 +32,7 @@
     <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.cfg" />
     <param name="show" type="bool" value="$(arg show)" />
     <param name="pub_image" type="bool" value="$(arg pub_image)" />
+    <param name="enable_rear" type="bool" value="$(arg enable_rear)" />
     <param name="drone_id" type="int" value="$(arg drone_id)" />
     <param name="extrinsic_path" type="string" value="$(arg extrinsic_path)" />
     <param name="detect_duration" type="double" value="$(arg detect_duration)" />
@@ -39,16 +41,15 @@
       thres: 0.6
       overlap_thres: 0.1
       fov: 235
-      show_width: 800
+      show_width: 1080
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.48
-      acpt_direction_thres: 2.0
-      acpt_inv_dep_thres: 0.8
+      acpt_direction_thres: 0.5
+      acpt_inv_dep_thres: 0.5
       pub_track_result: false
       pub_anonymous: false
       use_tensorrt: true
-      enable_rear: false
       tensorrt_fp16: true
     </rosparam>
   </node>

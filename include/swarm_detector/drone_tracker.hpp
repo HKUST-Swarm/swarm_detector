@@ -134,6 +134,7 @@ class DroneTracker {
 
         if(enable_tracker) {
             //Match with trackers
+            //Here we should use bbox to match the result.
             for (auto & it: tracking_drones) {
                 auto dis2d = tdrone.distance_to_drone(it.second);
                 double angle = acos(dis2d.x());

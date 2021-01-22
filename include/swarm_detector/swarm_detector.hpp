@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include <nodelet/nodelet.h>
 #include "sensor_msgs/Image.h"
+#include "sensor_msgs/CompressedImage.h"
 #include <pluginlib/class_list_macros.h>
 #include <eigen3/Eigen/Eigen>
 #include <queue>
@@ -40,13 +41,15 @@ private:
     BaseDetector *detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
+    ros::Subscriber fisheye_img_comp_sub;
     ros::Subscriber vins_imgs_sub;
     ros::Subscriber swarm_fused_sub;
     ros::Publisher swarm_detected_pub;
     ros::Publisher image_show_pub;
     ros::Subscriber odom_sub;
     ros::Subscriber imu_sub;
-    virtual void image_callback(const sensor_msgs::Image::ConstPtr &msg);
+    virtual void image_callback(const sensor_msgs::Image::ConstPtr &img1_msg);
+    virtual void image_comp_callback(const sensor_msgs::CompressedImageConstPtr &img1_msg);
     virtual void flattened_image_callback(const vins::FlattenImagesConstPtr & flattened);
     virtual void images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> & imgs);
     virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img, int direction, Swarm::Pose, cv::Mat & debug_img);
