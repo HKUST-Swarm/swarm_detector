@@ -51,6 +51,7 @@
       pub_anonymous: false
       use_tensorrt: true
       tensorrt_fp16: true
+      enable_tracker: false
     </rosparam>
   </node>
 </launch>

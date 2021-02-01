@@ -49,11 +49,10 @@ struct TrackedDrone {
         unit_p_cam = p3d.normalized();
     }
 
-    //Note this function return in cam frame, not virtual cam
-    //R*ret = ric*unit_p_cam
-    //ret = R^T*ric*unit_p_cam
-    std::pair<Eigen::Vector3d, double> get_cam_pose_yaw_only(Eigen::Matrix3d R) {
-        Eigen::Vector3d _unit_p_cam = R.transpose() * ric * unit_p_cam; 
+    //Note this function's the direction and inv_dep return in drone fram
+    //ret = ric*unit_p_cam
+    std::pair<Eigen::Vector3d, double> get_detection_drone_frame() {
+        Eigen::Vector3d _unit_p_cam = ric * unit_p_cam; 
         return std::make_pair(_unit_p_cam, inv_dep);
     }
 
