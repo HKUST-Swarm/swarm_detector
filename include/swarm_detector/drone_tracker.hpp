@@ -12,6 +12,7 @@ static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
 struct TrackedDrone {
     int _id;
+    bool is_stereo = false;
 
     cv::Rect2d bbox;
     Eigen::Vector3d unit_p_cam;
@@ -185,7 +186,7 @@ class DroneTracker {
 
         drone.update_position(tic, ric, Rdrone, cam);
         printf("Process detected drone: depth %3.2f prob %3.2f width %3.0f(f:%3.1f) center (%3.2f,%3.2f)\n", 1/drone.inv_dep, p,
-            rect.width, focal_length, rect.x + rect.width/2, rect.y + rect.y/2
+            rect.width, focal_length, rect.x + rect.width/2, rect.y + rect.height/2
         );
 
         int _id = match_id(drone);
