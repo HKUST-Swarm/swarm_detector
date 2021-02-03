@@ -76,6 +76,7 @@ private:
     bool enable_tracker;
     bool enable_triangulation;
     double detect_duration = 0.5;
+    double triangulation_thres = 0.006;
 
     double sf_latest = 0;
     int self_id;

@@ -19,7 +19,10 @@
 #define VCAMERA_RIGHT 3
 #define VCAMERA_REAR 4
 
-#define BBOX_DEPTH_OFFSET 0.32
+#define BBOX_DEPTH_OFFSET 0.12
+#define Z_OFFSET -0.07
+#define ASSUME_IDENTITY_CAMERA_ATT
+
 // #define DEBUG_SHOW_HCONCAT
 class TicToc
 {
@@ -129,14 +132,18 @@ void SwarmDetector::onInit()
         Eigen::Matrix4d T;
         cv::cv2eigen(_T, T);
         Rcam = T.block<3, 3>(0, 0);
-        // Rcam = Eigen::Matrix3d::Identity();
+#ifdef ASSUME_IDENTITY_CAMERA_ATT
+        Rcam = Eigen::Matrix3d::Identity();
+#endif
         Pcam = T.block<3, 1>(0, 3);
         extrinsic = Swarm::Pose(Rcam, Pcam);
 
         fsSettings["body_T_cam1"] >> _T;
         cv::cv2eigen(_T, T);
         Rcam_down = T.block<3, 3>(0, 0);
-        // Rcam_down = Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)).toRotationMatrix();
+#ifdef ASSUME_IDENTITY_CAMERA_ATT
+        Rcam_down = Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)).toRotationMatrix();
+#endif
         Pcam_down = T.block<3, 1>(0, 3);
         extrinsic_down = Swarm::Pose(Rcam_down, Pcam_down);
 
@@ -539,7 +546,7 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
 }
 
 
-void triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
+double triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
                         Eigen::Vector3d &point0, Eigen::Vector3d &point1, Eigen::Vector3d &point_3d)
 {
     //TODO:Rewrite this for 3d point
@@ -563,6 +570,12 @@ void triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<dou
     point_3d(0) = triangulated_point(0) / triangulated_point(3);
     point_3d(1) = triangulated_point(1) / triangulated_point(3);
     point_3d(2) = triangulated_point(2) / triangulated_point(3);
+
+
+    Eigen::MatrixXd pts(4, 1);
+    pts << point_3d.x(), point_3d.y(), point_3d.z(), 1;
+    Eigen::MatrixXd errs = design_matrix*pts;
+    return errs.norm()/ errs.rows(); 
 }
 
 
@@ -577,30 +590,36 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
                 //To simplify, we use identity pose since the DroneTracker gives direction already included the ric.
                 //Result is at drone frame.
                 Eigen::Matrix<double, 3, 4> upPose, downPose;
+                Eigen::Vector3d _Pcam(0, 0, Pcam.z()), _Pcam_down(0, 0, Pcam_down.z());
                 upPose.leftCols<3>() = Eigen::Matrix3d::Identity();
-                upPose.rightCols<1>() = -Eigen::Matrix3d::Identity() * Pcam;
+                upPose.rightCols<1>() = -Eigen::Matrix3d::Identity() * _Pcam;
 
                 downPose.leftCols<3>() = Eigen::Matrix3d::Identity();
-                downPose.rightCols<1>() = -Eigen::Matrix3d::Identity() * Pcam_down;
+                downPose.rightCols<1>() = -Eigen::Matrix3d::Identity() * _Pcam_down;
 
                 Eigen::Vector3d pos_drone;
                 auto det_up = drone_up.get_detection_drone_frame();
                 auto det_down = drone_down.get_detection_drone_frame();
                 std::cout << "det_up" << det_up.first.transpose() << "det_down" << det_down.first.transpose() << std::endl;
                 std::cout << "Pcam" << Pcam.transpose() << "Pcam_down" << Pcam_down.transpose() << std::endl;
-                triangulatePoint3DPts(upPose, downPose, 
+                double err = triangulatePoint3DPts(upPose, downPose, 
                     det_up.first, det_down.first, pos_drone);
-                drone_up.is_stereo = true;
-                drone_up.unit_p_cam = pos_drone;
-                drone_up.unit_p_cam.normalize();
-                drone_up.inv_dep = 1/(pos_drone.norm()+BBOX_DEPTH_OFFSET);
-                drone_up.ric = Eigen::Matrix3d::Identity();
+                if (err < triangulation_thres) {
+                    drone_up.is_stereo = true;
+                    drone_up.unit_p_cam = pos_drone;
+                    drone_up.unit_p_cam.normalize();
+                    drone_up.inv_dep = 1/(pos_drone.norm()+BBOX_DEPTH_OFFSET);
+                    drone_up.ric = Eigen::Matrix3d::Identity();
 
-                ROS_INFO("Stereo drone %d, pos_drone: %3.2f %3.2f %3.2f", drone_up._id, pos_drone.x(), pos_drone.y(), pos_drone.z());
-                tracked_drones.push_back(drone_up);
-                extrinsics.push_back(Swarm::Pose());
-                stereo_drones.insert(drone_up._id);
-                break;
+                    ROS_INFO("Stereo drone %d, pos_drone: %3.2f %3.2f %3.2f tri_err %3.2f", drone_up._id, pos_drone.x(), pos_drone.y(), pos_drone.z(), err*1000);
+                    tracked_drones.push_back(drone_up);
+                    extrinsics.push_back(Swarm::Pose());
+                    stereo_drones.insert(drone_up._id);
+                    break;
+                } else {
+                    ROS_WARN("Stereo drone %d, pos_drone: %3.2f %3.2f %3.2f tri_err %3.2f", drone_up._id, pos_drone.x(), pos_drone.y(), pos_drone.z(), err*1000);
+                    // exit(-1);
+                }
             }
         }
     }
