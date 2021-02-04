@@ -26,7 +26,7 @@ class FisheyeUndist;
 class SwarmDetector : public nodelet::Nodelet
 {
 public:
-    SwarmDetector()
+    SwarmDetector(): lookUpTable(1, 256, CV_8U)
     {
         Rvcams.push_back(Eigen::Quaterniond::Identity());                                             //0 top (up half)
         Rvcams.push_back(Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)))); //1 left
@@ -77,6 +77,12 @@ private:
     bool enable_triangulation;
     double detect_duration = 0.5;
     double triangulation_thres = 0.006;
+    bool enable_gamma_correction;
+    bool enable_up_cam;
+    bool enable_down_cam;
+    double gamma_;
+    cv::Mat lookUpTable;
+
 
     double sf_latest = 0;
     int self_id;

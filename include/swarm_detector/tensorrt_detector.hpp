@@ -29,6 +29,7 @@ public:
         std::vector<cv::Mat> imgs;
         cv::Mat img;
         // cv::cvtColor(image, img, cv::COLOR_BGR2RGB);
+
         img = image;
         imgs.emplace_back(img);
 	    std::vector<BatchResult> ress;

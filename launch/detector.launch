@@ -45,13 +45,17 @@
       p_track: 0.98
       min_p: 0.1
       drone_scale: 0.48
-      acpt_direction_thres: 0.5
+      acpt_direction_thres: 0.3
       acpt_inv_dep_thres: 0.5
       pub_track_result: false
       pub_anonymous: false
       use_tensorrt: true
       tensorrt_fp16: true
-      enable_tracker: false
+      enable_tracker: true
+      enable_triangulation: false
+      enable_up_cam: false
+      enable_down_cam: true
+      gamma: 0.6
     </rosparam>
   </node>
 </launch>
