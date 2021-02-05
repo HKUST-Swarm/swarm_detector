@@ -182,20 +182,25 @@ void SwarmDetector::onInit()
         camodocal::PinholeCameraPtr cam = fisheye->cam_side;
         if (i == 0)
         {
-            cam = fisheye->cam_top;
-        }
-        drone_trackers.push_back(
+            drone_trackers.push_back(
             new DroneTracker(Pcam, Rcam * Rvcams[i], cam, drone_scale, p_track, min_p,
-                             acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker));
+                             acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker, 0));
+
+            cam = fisheye->cam_top;
+        } else {
+            drone_trackers.push_back(
+            new DroneTracker(Pcam, Rcam * Rvcams[i], cam, drone_scale, p_track, min_p,
+                             acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker, UP_Z_OFFSET));
+        }
 
         if (i == 0) {
             drone_trackers_down.push_back(
                 new DroneTracker(Pcam_down, Rcam_down * Rvcams[i], cam, drone_scale, p_track, min_p,
-                                acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker));
+                                acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker, 0));
         } else {
             drone_trackers_down.push_back(
                 new DroneTracker(Pcam_down, Rcam_down * Rvcams[i]*t_down, cam, drone_scale, p_track, min_p,
-                                acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker));
+                                acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker, DOWN_Z_OFFSET));
         }
     }
 
@@ -380,7 +385,7 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const cv::Mat & _
     if (need_detect || enable_tracker && pub_track_result) {
         return tracked_drones;
     } else {
-        ROS_WARN("Not publish. Is track only");
+        // ROS_WARN("Not publish. Is track only");
         return std::vector<TrackedDrone>();
     }
 }
@@ -415,7 +420,6 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         det = tdrone.get_detection_drone_frame();
         Eigen::Vector3d p_drone = det.first;
         Eigen::Vector3d p_drone_yaw_only = Eigen::AngleAxisd(-local_pose_self.yaw(), Eigen::Vector3d::UnitZ())*local_pose_self.att() * p_drone;
-        p_drone_yaw_only.z() += DOWN_Z_OFFSET;
         p_drone_yaw_only.normalize();
         nd.dpos.x = p_drone_yaw_only.x();
         nd.dpos.y = p_drone_yaw_only.y();

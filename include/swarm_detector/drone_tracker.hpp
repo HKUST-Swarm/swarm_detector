@@ -10,6 +10,7 @@ static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 #define INV_DEP_COEFF 0.5
 #define MAX_DRONE_ID 100
 
+
 struct TrackedDrone {
     int _id;
     bool is_stereo = false;
@@ -22,11 +23,12 @@ struct TrackedDrone {
     Eigen::Matrix3d Rdrone;
     Eigen::Matrix3d ric;
     Eigen::Vector3d tic;
+    double z_calib = 0;
     camodocal::PinholeCameraPtr cam;
     TrackedDrone() {}
 
-    TrackedDrone(int id, cv::Rect2d _rect, double _inv_dep, double _p):
-        _id(id), bbox(_rect), inv_dep(_inv_dep), probaility(_p), center(_rect.x + _rect.width/2.0, _rect.y + _rect.height/2.0)
+    TrackedDrone(int id, cv::Rect2d _rect, double _inv_dep, double _p, double _z_calib):
+        _id(id), bbox(_rect), inv_dep(_inv_dep), probaility(_p), center(_rect.x + _rect.width/2.0, _rect.y + _rect.height/2.0), z_calib(_z_calib)
     {
     }
 
@@ -47,7 +49,8 @@ struct TrackedDrone {
         tic.y() = 0;
 
         _cam->liftProjective(center, p3d);
-        unit_p_cam = p3d.normalized();
+        unit_p_cam = p3d.normalized() + Eigen::Vector3d(0, -z_calib, 0);
+        unit_p_cam.normalize();
     }
 
     //Note this function's the direction and inv_dep return in drone fram
@@ -94,6 +97,7 @@ class DroneTracker {
 
     int last_create_id = rand()%100+100;
     double p_track;
+    double z_calib;
 
     int match_id(TrackedDrone &tdrone) {
 
@@ -182,7 +186,7 @@ class DroneTracker {
         //Simple use width as scale
         //Depth = f*DroneWidth(meter)/width(pixel)
         //InvDepth = width(pixel)/(f*width(meter))
-        drone = TrackedDrone(-1, rect, ((double)rect.width)/(drone_scale*focal_length), p);
+        drone = TrackedDrone(-1, rect, ((double)rect.width)/(drone_scale*focal_length), p, z_calib);
 
         drone.update_position(tic, ric, Rdrone, cam);
         printf("Process detected drone: depth %3.2f prob %3.2f width %3.0f(f:%3.1f) center (%3.2f,%3.2f)\n", 1/drone.inv_dep, p,
@@ -250,34 +254,16 @@ public:
                 double _min_p,
                 double _accept_direction_thres,
                 double _accept_inv_depth_thres,
-                bool _track_matched_only, bool _enable_tracker):
+                bool _track_matched_only, bool _enable_tracker, double _z_calib):
         tic(_tic), ric(_ric), cam(_cam), focal_length(cam->getParameters().fx()), drone_scale(_drone_scale), p_track(_p_track), min_p(_min_p), 
         accept_direction_thres(_accept_direction_thres),
         accept_inv_depth_thres(_accept_inv_depth_thres),
         track_matched_only(_track_matched_only),
-        enable_tracker(_enable_tracker)
+        enable_tracker(_enable_tracker),
+        z_calib(_z_calib)
     {
         //std::cout << "Tracker ric" << ric << "tic:" << tic << std::endl;
     }   
-
-    DroneTracker(Eigen::Vector3d _tic, 
-                std::vector<Eigen::Matrix3d> _rics, 
-                camodocal::PinholeCameraPtr _cam, 
-                double _drone_scale, 
-                double _p_track, 
-                double _min_p,
-                double _accept_direction_thres,
-                double _accept_inv_depth_thres,
-                bool _track_matched_only,
-                int _single_width):
-        tic(_tic), rics(_rics), cam(_cam), focal_length(cam->getParameters().fx()), drone_scale(_drone_scale), p_track(_p_track), min_p(_min_p), 
-        accept_direction_thres(_accept_direction_thres),
-        accept_inv_depth_thres(_accept_inv_depth_thres),
-        track_matched_only(_track_matched_only), single_width(_single_width),
-        is_concat_track(true)
-    {
-        
-    }  
 
     std::vector<TrackedDrone> track(const cv::Mat & _img) {
         std::vector<TrackedDrone> ret;
@@ -289,7 +275,7 @@ public:
             if (success) {
                 assert(tracking_drones.find(_id)!=tracking_drones.end() && "Tracker not found in tracked drones!");
                 auto old_tracked = tracking_drones[_id];
-                TrackedDrone TDrone(_id, rect, ((double)rect.width)/(drone_scale*focal_length), old_tracked.probaility*p_track);
+                TrackedDrone TDrone(_id, rect, ((double)rect.width)/(drone_scale*focal_length), old_tracked.probaility*p_track, z_calib);
 
                 if (TDrone.probaility > min_p) {
                     TDrone.update_position(tic, ric, Rdrone, cam);
