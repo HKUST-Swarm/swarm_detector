@@ -20,7 +20,8 @@
 #define VCAMERA_REAR 4
 
 #define BBOX_DEPTH_OFFSET 0.12
-#define Z_OFFSET -0.07
+#define DOWN_Z_OFFSET -0.08
+#define UP_Z_OFFSET 0.06
 // #define ASSUME_IDENTITY_CAMERA_ATT
 
 #define FIXED_CAM_UP_Z 0.12
@@ -414,6 +415,8 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         det = tdrone.get_detection_drone_frame();
         Eigen::Vector3d p_drone = det.first;
         Eigen::Vector3d p_drone_yaw_only = Eigen::AngleAxisd(-local_pose_self.yaw(), Eigen::Vector3d::UnitZ())*local_pose_self.att() * p_drone;
+        p_drone_yaw_only.z() += DOWN_Z_OFFSET;
+        p_drone_yaw_only.normalize();
         nd.dpos.x = p_drone_yaw_only.x();
         nd.dpos.y = p_drone_yaw_only.y();
         nd.dpos.z = p_drone_yaw_only.z();
@@ -581,11 +584,14 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
         std::vector<TrackedDrone> tracked_drones;
         std::vector<Swarm::Pose> extrinsics;
         for (auto tracked: tracked_drones_up) {
+            tracked.unit_p_cam.normalize();
             tracked_drones.push_back(tracked);
             extrinsics.push_back(Swarm::Pose(Rcam, Pcam));
         }
 
         for (auto tracked: tracked_drones_down) {
+            tracked.unit_p_cam.z() += DOWN_Z_OFFSET;
+            tracked.unit_p_cam.normalize();
             tracked_drones.push_back(tracked);
             extrinsics.push_back(Swarm::Pose(Rcam_down, Pcam_down));
         }
