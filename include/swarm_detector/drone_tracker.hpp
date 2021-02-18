@@ -207,7 +207,7 @@ class DroneTracker {
             tracking_drones.erase(_id);
         }
 
-        if (enable_tracker) {
+        if (enable_tracker && _id < MAX_DRONE_ID) {
             start_tracker_tracking(_id, frame, rect);
         }
 
