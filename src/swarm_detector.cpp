@@ -27,7 +27,7 @@
 #define FIXED_CAM_UP_Z 0.12
 #define FIXED_CAM_DOWN_Z 0.0
 
-// #define DEBUG_SHOW_HCONCAT
+#define DEBUG_SHOW_HCONCAT
 class TicToc
 {
   public:
@@ -277,8 +277,12 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(const cv::Mat & _i
     cv::Mat img1, img2;
     
     if (enable_gamma_correction) { 
-        cv::LUT(_img1, lookUpTable, img1);
-        cv::LUT(_img2, lookUpTable, img2);
+        if (!_img1.empty()) {
+            cv::LUT(_img1, lookUpTable, img1);
+        }
+        if (!_img2.empty()) {
+            cv::LUT(_img2, lookUpTable, img2);
+        }
     } else {
         img1 = _img1;
         img2 = _img2;
@@ -545,7 +549,10 @@ void SwarmDetector::image_comp_callback(const sensor_msgs::CompressedImageConstP
 
 cv::Mat img_empty;
 void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &flattened) {
-    ROS_INFO("sf_latest.t - flattened.t %5.2f", (sf_latest - flattened->header.stamp.toSec())*1000);
+    // if (fabs(sf_latest - flattened->header.stamp.toSec()) > 0.1) 
+    {
+        ROS_WARN("sf_latest.t - flattened.t high %5.2fms", (sf_latest - flattened->header.stamp.toSec())*1000);
+    }
 
     std::vector<const cv::Mat *> img_cpus, img_cpus_down;
     std::vector<cv_bridge::CvImageConstPtr> ptrs;

@@ -64,7 +64,7 @@ struct TrackedDrone {
     Eigen::Vector2d distance_to_drone(Eigen::Vector3d _pos, Eigen::Vector3d tic, Eigen::Matrix3d ric, Eigen::Matrix3d Rdrone, double focal_length = 256, double scale = 0.6) {
         auto ypr_drone =  R2ypr(Rdrone, false);
         Rdrone = Eigen::AngleAxisd(-ypr_drone(0), Eigen::Vector3d(0, 0, 1)) * Rdrone;
-        std::cout <<"Fused Pbody"<< (Rdrone.transpose() * _pos).transpose() << std::endl;
+        std::cout <<"\nFused Pbody"<< (Rdrone.transpose() * _pos).transpose() << std::endl;
         std::cout <<"Detec Pbody"<< (ric * unit_p_cam / inv_dep + tic).transpose() << std::endl;
         Eigen::Vector3d d_cam = ric.transpose() * (Rdrone.transpose() * _pos - tic);
         double _inv_dep = 1/d_cam.norm();
@@ -114,7 +114,7 @@ class DroneTracker {
             double d_est = (ric.transpose()*(it.second - tic)).z();
             double w_det = tdrone.bbox.width;
             double inv_dep_error = fabs(dis2d.y());
-            double angle_error = fabs(angle*d_est/(drone_scale));
+            double angle_error = fabs(angle/(drone_scale));
 
             if (angle_error < accept_direction_thres && inv_dep_error < accept_inv_depth_thres && angle + INV_DEP_COEFF*inv_dep_error < best_cost) {
                 best_cost = angle + INV_DEP_COEFF*inv_dep_error;
@@ -207,7 +207,7 @@ class DroneTracker {
             tracking_drones.erase(_id);
         }
 
-        if (enable_tracker) {
+        if (enable_tracker && _id < MAX_DRONE_ID) {
             start_tracker_tracking(_id, frame, rect);
         }
 
