@@ -45,7 +45,7 @@
       p_track: 0.999
       min_p: 0.1
       drone_scale: 0.48
-      acpt_direction_thres: 1.5
+      acpt_direction_thres: 1.0
       acpt_inv_dep_thres: 0.8
       pub_track_result: true
       pub_anonymous: false
