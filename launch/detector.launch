@@ -42,19 +42,19 @@
       overlap_thres: 0.1
       fov: 235
       show_width: 1080
-      p_track: 0.99
+      p_track: 0.999
       min_p: 0.1
       drone_scale: 0.48
-      acpt_direction_thres: 0.5
-      acpt_inv_dep_thres: 0.5
-      pub_track_result: false
+      acpt_direction_thres: 1.5
+      acpt_inv_dep_thres: 0.8
+      pub_track_result: true
       pub_anonymous: false
       use_tensorrt: true
       tensorrt_fp16: true
       enable_tracker: true
       enable_triangulation: false
-      enable_up_cam: false
-      enable_down_cam: true
+      enable_up_cam: true
+      enable_down_cam: false
       gamma: 0.6
     </rosparam>
   </node>

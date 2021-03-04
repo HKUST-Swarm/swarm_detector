@@ -195,11 +195,11 @@ void SwarmDetector::onInit()
 
         if (i == 0) {
             drone_trackers_down.push_back(
-                new DroneTracker(Pcam_down, Rcam_down * Rvcams[i], cam, drone_scale, p_track, min_p,
+                new DroneTracker(Pcam_down, Rcam * Rcam_down * Rvcams[i], cam, drone_scale, p_track, min_p,
                                 acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker, 0));
         } else {
             drone_trackers_down.push_back(
-                new DroneTracker(Pcam_down, Rcam_down * Rvcams[i]*t_down, cam, drone_scale, p_track, min_p,
+                new DroneTracker(Pcam_down, Rcam * Rcam_down * Rvcams[i]*t_down, cam, drone_scale, p_track, min_p,
                                 acpt_direction_thres, acpt_inv_dep_thres, track_matched_only, enable_tracker, DOWN_Z_OFFSET));
         }
     }
