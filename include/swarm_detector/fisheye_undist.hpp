@@ -91,6 +91,27 @@ public:
     }
 
 
+    std::vector<cv::Mat> undist_all(const cv::Mat & image, bool use_rgb = false, bool enable_rear = true) {
+        std::vector<cv::Mat> ret;
+
+        if (enable_rear) {
+            cv::Mat output;
+            for (unsigned int i = 0; i < undistMaps.size(); i++) {
+                cv::remap(image, output, undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
+                ret.push_back(output);
+            }
+            return ret;
+        } else {
+            for (unsigned int i = 0; i < undistMaps.size() - 1; i++) {
+                cv::Mat output;
+                cv::remap(image, output, undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
+                ret.push_back(output);
+            }
+            return ret; 
+        }
+    }
+
+
     std::vector<cv::Mat> generateAllUndistMap(camodocal::CameraPtr p_cam,
                                           Eigen::Vector3d rotation,
                                           const unsigned &imgWidth,

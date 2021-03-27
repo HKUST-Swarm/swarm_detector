@@ -9,13 +9,15 @@ class TensorRTDetector: public BaseDetector
 public:
     TensorRTDetector(std::string weights,
                     std::string cfg,
-                    double _thres, double _overlap_thres):
+                    double _thres, double _overlap_thres, bool fp16=true):
         BaseDetector(_thres, _overlap_thres) {
         Config config;
         config.file_model_cfg = cfg;
         config.file_model_weights = weights;
         config.calibration_image_list_file_txt = "";
-        //config.inference_precison = FP16;
+        if (fp16) {
+            config.inference_precison = FP16;
+        }
         config.detect_thresh = _thres;
         config.net_type = YOLOV4_TINY;
         detector.init(config);
@@ -27,6 +29,7 @@ public:
         std::vector<cv::Mat> imgs;
         cv::Mat img;
         // cv::cvtColor(image, img, cv::COLOR_BGR2RGB);
+
         img = image;
         imgs.emplace_back(img);
 	    std::vector<BatchResult> ress;
