@@ -61,7 +61,7 @@ void SwarmDetector::onInit()
 {
     ros::NodeHandle nh = this->getMTPrivateNodeHandle();
 
-
+    cv::setNumThreads(1);
     std::string darknet_weights_path;
     std::string darknet_cfg;
     std::string camera_config_file;
