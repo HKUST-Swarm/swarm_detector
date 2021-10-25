@@ -47,18 +47,44 @@ private:
     ros::Publisher swarm_detected_pub;
     ros::Publisher image_show_pub;
     ros::Subscriber odom_sub;
-    ros::Subscriber imu_sub;
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &img1_msg);
     virtual void image_comp_callback(const sensor_msgs::CompressedImageConstPtr &img1_msg);
     virtual void flattened_image_callback(const vins::FlattenImagesConstPtr & flattened);
-    virtual std::vector<TrackedDrone> images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> & imgs, bool is_down_cam = false);
-    virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img, int direction, Swarm::Pose, cv::Mat & debug_img, bool is_down_cam);
-    virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img1, const cv::Mat & img2, int dir1, int dir2, Swarm::Pose drone_pose, cv::Mat & debug_img1, cv::Mat & debug_img2, bool is_down_cam);
-    virtual std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> stereo_triangulate(std::vector<TrackedDrone> tracked_up, std::vector<TrackedDrone> tracked_down);
-    virtual std::vector<TrackedDrone> process_detect_result(const cv::Mat & _img, int direction, 
-        std::vector<std::pair<cv::Rect2d, double>> detected_drones, Swarm::Pose pose_drone, cv::Mat & debug_img, bool has_detect, bool is_down_cam);
+    virtual std::vector<TrackedDrone> images_callback(const ros::Time & stamp, 
+        const std::vector<const cv::Mat *> & imgs, 
+        bool is_down_cam = false);
+    
+    virtual std::vector<TrackedDrone> 
+        virtual_cam_callback(const cv::Mat & img, 
+        int direction, 
+        Swarm::Pose pose, 
+        bool need_detect,
+        bool is_down_cam,
+        cv::Mat & debug_img);
+    
+    virtual std::vector<TrackedDrone> virtual_cam_callback2(const cv::Mat & img1, 
+        const cv::Mat & img2, 
+        int dir1, 
+        int dir2, 
+        Swarm::Pose drone_pose, 
+        bool need_detect, 
+        bool is_down_cam, 
+        cv::Mat & debug_img1, 
+        cv::Mat & debug_img2);
+
+    virtual std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> 
+        stereo_triangulate(std::vector<TrackedDrone> tracked_up, 
+        std::vector<TrackedDrone> tracked_down);
+
+    virtual std::vector<TrackedDrone> process_detect_result(const cv::Mat & _img, 
+        int direction, 
+        std::vector<std::pair<cv::Rect2d, double>> detected_drones, 
+        Swarm::Pose pose_drone, 
+        bool has_detect, 
+        bool is_down_cam,
+        cv::Mat & debug_img);
+
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
-    virtual void imu_callback(const sensor_msgs::Imu & imu_data);
     virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
     virtual void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
     virtual Swarm::Pose get_pose_drone(const ros::Time &  stamp);
@@ -92,7 +118,7 @@ private:
 
     std::vector<DroneTracker *> drone_trackers;
     std::vector<DroneTracker *> drone_trackers_down;
-    std::vector<ros::Time> last_detects;
+    ros::Time last_detect;
 
     std::queue<std::pair<ros::Time, Swarm::Pose>> pose_buf;
 
