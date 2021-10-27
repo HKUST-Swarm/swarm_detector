@@ -7,11 +7,12 @@
 #include <queue>
 #include <tuple>
 #include <nav_msgs/Odometry.h>
-#include <swarm_msgs/swarm_fused_relative.h>
+#include <swarm_msgs/swarm_fused.h>
 #include <swarm_msgs/Pose.h>
 #include <sensor_msgs/Imu.h>
 #include <opencv2/opencv.hpp>
 #include <vins/FlattenImages.h>
+#include "visual_detection_matcher.hpp"
 
 class BaseDetector;
 class DroneTracker;
@@ -28,12 +29,6 @@ class SwarmDetector : public nodelet::Nodelet
 public:
     SwarmDetector(): lookUpTable(1, 256, CV_8U)
     {
-        Rvcams.push_back(Eigen::Quaterniond::Identity());                                             //0 top (up half)
-        Rvcams.push_back(Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)))); //1 left
-        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //2 front
-        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //3 right
-        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //4 rear
-        t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
     }
 
 private:
@@ -47,6 +42,23 @@ private:
     ros::Publisher swarm_detected_pub;
     ros::Publisher image_show_pub;
     ros::Subscriber odom_sub;
+    void init_camera_extrinsics() {
+        std::vector<Eigen::Quaterniond> Rvcams;
+        Rvcams.push_back(Eigen::Quaterniond::Identity());                                             //0 top (up half)
+        Rvcams.push_back(Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)))); //1 left
+        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //2 front
+        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //3 right
+        Rvcams.push_back(Rvcams.back() * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0)));      //4 rear
+        t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
+
+        Rcams.emplace_back(Rcam);
+        Rcams_down.emplace_back(Rcam_down);
+
+        for (size_t i = 1; i < Rvcams.size(); i ++) {
+            Rcams.emplace_back(Rcam*Rvcams[i]);
+            Rcams_down.emplace_back(Rcam_down * Rvcams[i]*t_down);
+        }
+    }
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &img1_msg);
     virtual void image_comp_callback(const sensor_msgs::CompressedImageConstPtr &img1_msg);
     virtual void flattened_image_callback(const vins::FlattenImagesConstPtr & flattened);
@@ -85,7 +97,7 @@ private:
         cv::Mat & debug_img);
 
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
-    virtual void swarm_fused_callback(const swarm_msgs::swarm_fused_relative & sf);
+    virtual void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
     virtual void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
     virtual Swarm::Pose get_pose_drone(const ros::Time &  stamp);
     bool debug_show = false;
@@ -103,6 +115,8 @@ private:
     bool enable_triangulation;
     double detect_duration = 0.5;
     double triangulation_thres = 0.006;
+    double drone_scale;
+    
     bool enable_gamma_correction;
     bool enable_up_cam;
     bool enable_down_cam;
@@ -113,11 +127,13 @@ private:
     double sf_latest = 0;
     int self_id;
 
-    std::vector<Eigen::Quaterniond> Rvcams, Rvcams_down;
+    std::vector<Eigen::Matrix3d> Rcams, Rcams_down;
     Eigen::Quaterniond t_down;
 
     std::vector<DroneTracker *> drone_trackers;
     std::vector<DroneTracker *> drone_trackers_down;
+    VisualDetectionMatcher * visual_detection_matcher_up;
+    VisualDetectionMatcher * visual_detection_matcher_down;
     ros::Time last_detect;
 
     std::queue<std::pair<ros::Time, Swarm::Pose>> pose_buf;
@@ -134,7 +150,7 @@ private:
     ros::Time last_stamp;
     
     //This is in fake body frame(yaw only)
-    std::map<int, Eigen::Vector3d> swarm_positions;
+    std::map<int, Swarm::Pose> swarm_positions;
 };
 
 } // namespace swarm_detector_pkg

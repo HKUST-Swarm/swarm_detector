@@ -10,7 +10,6 @@
   <arg name="detect_duration" default="1.0" />
   <arg name="extrinsic_path" default="/home/dji/SwarmConfig/fisheye_ptgrey_n3/fisheye_cuda.yaml" />
   <arg name="swarm_fused" default="/swarm_drones/swarm_drone_fused"/>
-  <arg name="swarm_fused_relative" default="/swarm_drones/swarm_drone_fused_relative"/>
   <arg name="width" default="400" />
   <arg name="enable_rear" default="false" />
 
@@ -23,7 +22,6 @@
     <remap from="~imu" to="/dji_sdk_1/dji_sdk/imu"/>
     <remap from="~vins_flattened" to="/vins_estimator/flattened_raw"/>
     <remap from="~swarm_fused" to="$(arg swarm_fused)" />
-    <remap from="~swarm_fused_relative" to="$(arg swarm_fused_relative)" />
 
     <param name="cam_file" type="string" value="$(arg cam_file)" />
     <!-- <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />

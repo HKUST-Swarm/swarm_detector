@@ -56,6 +56,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${DARKNET_ROOT}/include
   /usr/include/eigen3
+  third_party/
 )
 
 
@@ -63,6 +64,7 @@ include_directories(
 add_library(${PROJECT_NAME}
   src/swarm_detector.cpp
   src/darknet_detector.cpp
+  third_party/km.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 
