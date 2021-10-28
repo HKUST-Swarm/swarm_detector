@@ -3,7 +3,8 @@
 #include "swarm_detector/fisheye_undist.hpp"
 #include "km.h"
 
-#define MAX_COST 100000
+#define MAX_COST -1
+// #define DEBUG_OUTPUT
 namespace swarm_detector_pkg {
 class VisualDetectionMatcher {
 
@@ -47,19 +48,22 @@ public:
 
         double w_2 = 0.2;
         double h_2 = 0.2;
+        double w_g_2 = 0.15;
+        double h_g_2 = 0.15;
         double z_max = 0.1;
         double z_min = -0.1;
+        double z_mid = 0.05;
         Vector3d Gc_imu(-0.06, 0, 0);
 
         boundbox3d_corners = std::vector<Vector3d>{
-            Vector3d(w_2, h_2, z_max) + Gc_imu,
-            Vector3d(w_2, -h_2, z_max) + Gc_imu,
-            Vector3d(-w_2, h_2, z_max) + Gc_imu,
-            Vector3d(-w_2, -h_2, z_max) + Gc_imu,
-            Vector3d(w_2, h_2, z_min) + Gc_imu,
-            Vector3d(w_2, -h_2, z_min) + Gc_imu,
-            Vector3d(-w_2, h_2, z_min) + Gc_imu,
-            Vector3d(-w_2, -h_2, z_min) + Gc_imu,
+            Vector3d(w_2, h_2, z_mid) + Gc_imu,
+            Vector3d(w_2, -h_2, z_mid) + Gc_imu,
+            Vector3d(-w_2, h_2, z_mid) + Gc_imu,
+            Vector3d(-w_2, -h_2, z_mid) + Gc_imu,
+            Vector3d(w_g_2, h_g_2, z_min) + Gc_imu,
+            Vector3d(w_g_2, -h_g_2, z_min) + Gc_imu,
+            Vector3d(-w_g_2, h_g_2, z_min) + Gc_imu,
+            Vector3d(-w_g_2, -h_g_2, z_min) + Gc_imu,
         };
     } 
 
@@ -107,10 +111,12 @@ public:
         reproject_bbox.y = ys.minCoeff();
         reproject_bbox.height = ys.maxCoeff() - reproject_bbox.y;
 
-        // std::cout << "corner3d_body\n" << corners2d_body << std::endl;
-        // std::cout << "corner3d_body_col_xs\n" << xs << std::endl;
-        // std::cout << "corner3d_body_col_ys\n" << ys << std::endl;
-        // std::cout << "bbox\n" << reproject_bbox << std::endl;
+#ifdef DEBUG_OUTPUT
+        std::cout << "corner3d_body\n" << corners2d_body << std::endl;
+        std::cout << "corner3d_body_col_xs\n" << xs << std::endl;
+        std::cout << "corner3d_body_col_ys\n" << ys << std::endl;
+        std::cout << "bbox\n" << reproject_bbox << std::endl;
+#endif
 
         if (reproject_bbox.x + reproject_bbox.width < 0 || reproject_bbox.x > cam->imageWidth() || 
                 reproject_bbox.y + reproject_bbox.height < 0 || reproject_bbox.y > cam->imageWidth()) {
@@ -125,7 +131,7 @@ public:
         Swarm::Pose pose_cam_local = pose_drone*pose_cams[det.direction];
         auto ret = reproject_drone_to_vcam(det.direction, est, pose_cam_local);
         if (ret.first) {
-            return 1-det.overlap(ret.second);
+            return det.overlap(ret.second)*100;
         }
 
         return MAX_COST;
@@ -135,7 +141,7 @@ public:
         if (det.direction != tracked.direction) {
             return MAX_COST;
         }
-        return 1 - det.overlap(tracked);
+        return det.overlap(tracked)*100;
     }
 
     Eigen::MatrixXf construct_cost_matrix(const std::vector<TrackedDrone> & detected_targets, std::vector<Swarm::Pose> swarm_poses, 
@@ -153,19 +159,21 @@ public:
         
         for (size_t j = 0; j < detected_targets.size(); j ++) {
             for (size_t i = 0; i < swarm_est_ids.size(); i ++) {
+#ifdef DEBUG_OUTPUT
+                ROS_INFO("[SWARM_DETECT] Cost for det %d est %d(drone%d): %s: dir %d", j, i, swarm_est_ids[i], swarm_est_poses[i].tostr().c_str(), detected_targets[j].direction);
+#endif
                 cost(i, j) = cost_det_to_est(detected_targets[j], swarm_est_poses[i]);
-                ROS_INFO("Cost for det %d est %d: %f", j, i, cost(i, j));
 
             }
 
             for (size_t _i = 0; _i < tracked_drones.size(); _i ++) {
                 auto i = _i + swarm_est_ids.size();
                 // cost(i, j) = ...;
-                cost(i, j) = cost_det_to_tracked(detected_targets[j], tracked_drones[i]);
+                cost(i, j) = cost_det_to_tracked(detected_targets[j], tracked_drones[_i]);
             }
         }
 
-        ROS_INFO("SWARM_DETECT: cost for KM:");
+        ROS_INFO("[SWARM_DETECT] cost for KM rows: %ld [est %ld; targets %ld]: cols [dets %ld]", swarm_poses.size() + tracked_drones.size(), swarm_poses.size(), tracked_drones.size(), detected_targets.size());
         std::cout << cost <<std::endl;
         return cost;
     }
@@ -192,19 +200,24 @@ public:
         if (detected_targets.size() > 0 && tracked_drones.size() + swarm_est_poses.size() > 0) {
             auto cost = construct_cost_matrix(detected_targets, swarm_est_poses, tracked_drones);
             KM km(cost);
-            auto matched = km.getMatch(1); //This returns the detected targets matched to the object/
-            std::cout << "Matched size" << matched.size() << std::endl;
+            auto matched = km.getMatch(0); //This returns the detected targets matched to the object. length equals to max(cols, rows). The output corresponding to det1 det2.. detN
+            // std::cout << "Matched size" << matched.size() << ": [";
+            // for (size_t i = 0; i < matched.size(); i ++) {
+            //     std::cout << matched[i] << " ";
+            // }
+            // std::cout << "]" << endl;
+
             for (size_t i = 0; i < detected_targets.size(); i ++) {
                 auto matched_to = matched[i];
                 auto assigned_id = -1;
-                if (matched_to < swarm_est_ids.size()) {
+                if (matched_to < swarm_est_ids.size() && matched_to > 0) {
                     assigned_id = swarm_est_ids[matched_to];
-                } else if (matched_to < swarm_est_ids.size() + tracked_drones.size()) {
+                } else if (matched_to < swarm_est_ids.size() + tracked_drones.size() && matched_to > 0) {
                     assigned_id = tracked_drones[matched_to-swarm_est_ids.size()]._id;
                 }
-                printf("%d->%d (matched_to %d)", i, assigned_id, matched_to);
+                printf("%ld->%d (matched_to drone-%d)", i, assigned_id, matched_to);
 
-                if (assigned_id >= 0) {
+                if (assigned_id >= 0 && cost(i, matched_to) > 0) {
                     auto target = detected_targets[i];
                     target._id = assigned_id;
                     matched_targets.emplace_back(target);

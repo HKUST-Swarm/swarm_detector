@@ -21,9 +21,6 @@ struct TrackedDrone {
     double probaility = 1.0;
     double inv_dep = 0;
     Eigen::Vector2d center;
-    Eigen::Matrix3d Rdrone;
-    Eigen::Matrix3d ric;
-    Eigen::Vector3d tic;
     double z_calib = 0;
     camodocal::PinholeCameraPtr cam;
     int direction;
@@ -36,30 +33,21 @@ struct TrackedDrone {
     }
 
     //This is self camera position and quat
-    void setCameraIntrinsicExtrinsic(
-        Eigen::Vector3d _tic, Eigen::Matrix3d _ric, 
-        Eigen::Matrix3d _Rdrone,
-        camodocal::PinholeCameraPtr _cam) {
+    void setCameraIntrinsicExtrinsic(Eigen::Matrix3d _ric, 
+            camodocal::PinholeCameraPtr _cam) {
         Eigen::Vector3d p3d;
         cam = _cam;
-        Rdrone = _Rdrone;
-        ric = _ric;
-        tic = _tic;
-
-        //Ignore Extrinsic XY since the camera is at middle of the drone.
-        tic.x() = 0;
-        tic.y() = 0;
 
         _cam->liftProjective(center, p3d);
         unit_p_cam = p3d.normalized() + Eigen::Vector3d(0, -z_calib, 0);
         unit_p_cam.normalize();
+        unit_p_cam = _ric*unit_p_cam;
     }
 
     //Note this function's the direction and inv_dep return in drone fram
     //ret = ric*unit_p_cam
     std::pair<Eigen::Vector3d, double> get_detection_drone_frame() {
-        Eigen::Vector3d _unit_p_cam = ric * unit_p_cam; 
-        return std::make_pair(_unit_p_cam, inv_dep);
+        return std::make_pair(unit_p_cam, inv_dep);
     }
 
     //Return a virtual distance
@@ -230,25 +218,15 @@ public:
         return ret;
     }
 
-    // std::vector<TrackedDrone> process_detected_targets(const cv::Mat & img, std::vector<TrackedDrone> detected_drones) {
-    //     std::vector<TrackedDrone> ret;
-    //     this->track(img);
-    //     for (auto drone: detected_drones) {
-    //         TrackedDrone tracked_drone = match_with_trackers(drone);
-    //         ret.push_back(tracked_drone);
-    //     }
-    //     return ret;
-    // }
-
-    void start_tracker_tracking(const TrackedDrone & detected_drones, const cv::Mat & frame) {
-        if (trackers.find(detected_drones._id) != trackers.end()) {
-            trackers.erase(detected_drones._id);
+    void start_tracker_tracking(const TrackedDrone & detected_drone, const cv::Mat & frame) {
+        if (trackers.find(detected_drone._id) != trackers.end()) {
+            trackers.erase(detected_drone._id);
         }
         auto tracker = cv ::TrackerMOSSE::create();
         // auto tracker = cv::TrackerMedianFlow::create();
-        tracker->init(frame, detected_drones.bbox);
-        trackers[detected_drones._id] = tracker;
-        tracking_drones[detected_drones._id] = detected_drones;
+        tracker->init(frame, detected_drone.bbox);
+        trackers[detected_drone._id] = tracker;
+        tracking_drones[detected_drone._id] = detected_drone;
     }
 
     std::vector<TrackedDrone> get_tracked_drones() const {

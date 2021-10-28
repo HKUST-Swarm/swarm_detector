@@ -39,7 +39,7 @@
       thres: 0.6
       overlap_thres: 0.1
       fov: 235
-      show_width: 1080
+      show_width: 2160
       p_track: 0.999
       min_p: 0.1
       drone_scale: 0.48
