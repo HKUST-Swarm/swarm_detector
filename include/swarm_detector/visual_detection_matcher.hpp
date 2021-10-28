@@ -28,6 +28,7 @@ class VisualDetectionMatcher {
     std::vector<Vector3d> boundbox3d_corners;
 
     bool show = false;
+    Vector3d Gc_imu = Vector3d(-0.06, 0, 0.00);
 
 public:
     VisualDetectionMatcher(Eigen::Vector3d _tic, 
@@ -53,7 +54,6 @@ public:
         double z_max = 0.1;
         double z_min = -0.1;
         double z_mid = 0.05;
-        Vector3d Gc_imu(-0.06, 0, 0.00);
 
         boundbox3d_corners = std::vector<Vector3d>{
             Vector3d(w_2, h_2, z_mid) + Gc_imu,
@@ -76,6 +76,23 @@ public:
             swarm_est_ids.emplace_back(it.first);
             swarm_est_poses.emplace_back(it.second);
         }
+    }
+
+    std::pair<bool, Eigen::Vector2d> reproject_point_to_vcam(int direction, Eigen::Vector3d corner, Swarm::Pose est, Swarm::Pose cur) const {
+        auto cam = fisheye->cam_side;
+        if (direction == 0) {
+            cam = fisheye->cam_top;
+        }
+        Eigen::Vector2d ret(0, 0);
+
+        auto corner3d_body = est * corner;
+        corner3d_body = cur.apply_inv_pose_to(corner3d_body);
+        if (corner3d_body.z() < 0) {
+            return std::make_pair(false, ret);
+        }
+
+        cam->spaceToPlane(corner3d_body, ret);
+        return std::make_pair(true, ret);
     }
 
     std::pair<bool, cv::Rect2d> reproject_drone_to_vcam(int direction, Swarm::Pose est, Swarm::Pose cur) const {
@@ -185,9 +202,15 @@ public:
             }
             Swarm::Pose pose_cam_local = pose_drone*pose_cams[i];
             for (size_t j = 0; j < swarm_est_ids.size(); j++) {
+                ROS_INFO("[SWARM_DETECT] draw_debug pose_drone %s pose_cam %s est %s", 
+                    pose_drone.tostr().c_str(), pose_cam_local.tostr().c_str(), swarm_est_poses[j].tostr().c_str());
                 auto ret = reproject_drone_to_vcam(i, swarm_est_poses[j], pose_cam_local);
+                auto ret2 = reproject_point_to_vcam(i, Gc_imu, swarm_est_poses[j], pose_cam_local);
                 if (ret.first) {
                     cv::rectangle(debug_imgs[i], ret.second, cv::Scalar(255, 0, 0), 2);
+                }
+                if (ret2.first) {
+                    cv::circle(debug_imgs[i], cv::Point2f(ret2.second.x(), ret2.second.y()), 3, cv::Scalar(255, 0, 0), 2);
                 }
             }
         }

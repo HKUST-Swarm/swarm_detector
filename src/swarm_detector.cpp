@@ -121,6 +121,7 @@ void SwarmDetector::onInit()
     cv::Mat R, T;
 
     FILE *fh = fopen(extrinsic_path.c_str(), "r");
+    ROS_INFO("[SWARM_DETECT] Try to read extrinsic from %s camera from %s", extrinsic_path.c_str(), camera_config_file.c_str());
     if (fh == NULL)
     {
         ROS_WARN("[SWARM_DETECT] Config_file dosen't exist; Assume identity camera pose");
@@ -346,6 +347,8 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const cv::Mat & _
             // ROS_INFO("Tracked drone ID %d@%d", ret._id, direction);
             // std::cout << ret.bbox << std::endl;
             cv::rectangle(debug_img, ret.bbox, ScalarHSV2BGR(ret.probaility * 128 + 128, 255, 255), 3);
+            cv::Point2f p(ret.bbox.x + ret.bbox.width/2, ret.bbox.y + ret.bbox.height/2);
+            cv::circle(debug_img, p, 4, ScalarHSV2BGR(ret.probaility * 128 + 128, 255, 255), 2);
             sprintf(idtext, "[%d](%3.1f%%)", ret._id, ret.probaility * 100);
             //Draw bottom
             cv::Point2f pos(ret.bbox.x, ret.bbox.y + ret.bbox.height + 20);
@@ -382,9 +385,9 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         nd.dpos.x = p_drone_yaw_only.x();
         nd.dpos.y = p_drone_yaw_only.y();
         nd.dpos.z = p_drone_yaw_only.z();
-
-        Swarm::Pose extrinsic_no_yaw =Swarm::Pose(Vector3d(0, 0, 0), local_quat_no_yaw)*extrinsic;
-        nd.camera_extrinsic = extrinsic_no_yaw.to_ros_pose();
+        
+        Swarm::Pose extrinsic_no_att =Swarm::Pose(Vector3d(0, 0, 0), local_quat_no_yaw)*Swarm::Pose(extrinsic.pos(), Quaterniond::Identity());
+        nd.camera_extrinsic = extrinsic_no_att.to_ros_pose();
         nd.local_pose_self = local_pose_self.to_ros_pose();
 
 
@@ -428,7 +431,7 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr, bool ena
 }
 
 
-//Pose drone should be convert by base_coor.
+//TODO: Pose drone should be convert by base_coor.
 Swarm::Pose SwarmDetector::get_pose_drone(const ros::Time & stamp) {
     double min_dt = 10000;
 
