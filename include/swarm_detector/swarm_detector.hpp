@@ -13,6 +13,7 @@
 #include <opencv2/opencv.hpp>
 #include <vins/FlattenImages.h>
 #include "visual_detection_matcher.hpp"
+#include <mutex>
 
 class BaseDetector;
 class DroneTracker;
@@ -65,6 +66,7 @@ private:
     virtual void flattened_image_callback(const vins::FlattenImagesConstPtr & flattened);
     virtual std::vector<TrackedDrone> images_callback(const ros::Time & stamp, 
         const std::vector<const cv::Mat *> & imgs, 
+        std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> poses_drones,
         bool is_down_cam = false);
     
     virtual std::vector<TrackedDrone> 
@@ -100,7 +102,7 @@ private:
     virtual void odometry_callback(const nav_msgs::Odometry & odom);
     virtual void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
     virtual void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
-    virtual Swarm::Pose get_pose_drone(const ros::Time &  stamp);
+    virtual std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> get_poses_drones(const ros::Time &  stamp);
     bool debug_show = false;
     bool concat_for_tracking = false;
     bool enable_rear = false;
@@ -127,6 +129,7 @@ private:
 
     double sf_latest = 0;
     int self_id;
+    int publish_count = 0;
 
     std::vector<Eigen::Matrix3d> Rcams, Rcams_down;
     Eigen::Quaterniond t_down;
@@ -137,7 +140,10 @@ private:
     VisualDetectionMatcher * visual_detection_matcher_down;
     ros::Time last_detect;
 
+    std::mutex buf_lock;
+
     std::queue<std::pair<ros::Time, Swarm::Pose>> pose_buf;
+    std::queue<std::map<int, Swarm::Pose>> swarm_positions_buf;
 
     Eigen::Vector3d Pcam = Eigen::Vector3d::Zero();
     Eigen::Matrix3d Rcam = Eigen::Matrix3d::Identity();
@@ -146,12 +152,9 @@ private:
 
     Swarm::Pose extrinsic, extrinsic_down;
 
-    void update_swarm_pose();
-
     ros::Time last_stamp;
     
     //This is in fake body frame(yaw only)
-    std::map<int, Swarm::Pose> swarm_positions;
 };
 
 } // namespace swarm_detector_pkg

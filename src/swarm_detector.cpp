@@ -28,6 +28,8 @@
 #define FIXED_CAM_DOWN_Z 0.0
 
 #define DEBUG_SHOW_HCONCAT
+
+#define DETECTION_MARGIN 5
 class TicToc
 {
   public:
@@ -201,7 +203,7 @@ void SwarmDetector::onInit()
     node_detected_pub = nh.advertise<swarm_msgs::node_detected_xyzyaw>("/swarm_drones/node_detected", 3);
     image_show_pub = nh.advertise<sensor_msgs::Image>("show", 1);
 
-    odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
+    // odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
     vins_imgs_sub = nh.subscribe("vins_flattened", 3, &SwarmDetector::flattened_image_callback, this);
     swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
     fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
@@ -222,11 +224,20 @@ void SwarmDetector::swarm_fused_callback(const swarm_msgs::swarm_fused & sf) {
     // }
 
     sf_latest = sf.header.stamp.toSec();
+    std::map<int, Swarm::Pose> swarm_positions;
+    std::pair<ros::Time, Swarm::Pose> self_pose_stamped;
     for (size_t i = 0; i < sf.ids.size(); i ++) {
         if (sf.ids[i] != self_id) {
             swarm_positions[sf.ids[i]] = Swarm::Pose(sf.local_drone_position[i], sf.local_drone_rotation[i]);
+        } else {
+            self_pose_stamped = std::make_pair(sf.header.stamp, Swarm::Pose(sf.local_drone_position[i], sf.local_drone_rotation[i]));
         }
     }
+    buf_lock.lock();
+    pose_buf.push(self_pose_stamped);
+    swarm_positions_buf.push(swarm_positions);
+    buf_lock.unlock();
+
 }
 
 cv::Scalar ScalarHSV2BGR(uchar H, uchar S, uchar V) {
@@ -305,6 +316,14 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const cv::Mat & _
     }
 
     for (auto det : detected_targets) {
+        double x1 = det.first.x;
+        double y1 = det.first.y;
+        double x2 = det.first.x + det.first.width;
+        double y2 = det.first.y + det.first.height;
+        if (x1 < DETECTION_MARGIN || x2 > _img.cols - DETECTION_MARGIN || y1 < DETECTION_MARGIN || y2 > _img.rows - DETECTION_MARGIN) {
+            continue;
+        }
+
         auto _target = TrackedDrone(-1, det.first, ((double)det.first.width)/(drone_scale*focal_length), 
             det.second, z_calib, direction);
         detected_targets_drones.emplace_back(_target);
@@ -359,8 +378,8 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const cv::Mat & _
 }
 
 void SwarmDetector::odometry_callback(const nav_msgs::Odometry & odom) {
-    auto tup = std::make_pair(odom.header.stamp, Swarm::Pose(odom.pose.pose));
-    pose_buf.push(tup);
+    // auto tup = std::make_pair(odom.header.stamp, Swarm::Pose(odom.pose.pose));
+    // pose_buf.push(tup);
 }
 
 void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics) {
@@ -399,7 +418,9 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         nd.probaility = tdrone.probaility;
         nd.inv_dep = det.second;
 
-        ROS_INFO("[SWARM_DETECT] Pub drone %d dir: [%3.2f, %3.2f, %3.2f] dep %3.2f Cam Pose", tdrone._id, 
+        publish_count ++;
+        ROS_INFO("[SWARM_DETECT] Pub drone %d number %d dir: [%3.2f, %3.2f, %3.2f] dep %3.2f Cam Pose", tdrone._id, 
+            publish_count,
             nd.dpos.x, nd.dpos.y, nd.dpos.z,
             1/nd.inv_dep
         );
@@ -432,10 +453,13 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr, bool ena
 
 
 //TODO: Pose drone should be convert by base_coor.
-Swarm::Pose SwarmDetector::get_pose_drone(const ros::Time & stamp) {
+std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> SwarmDetector::get_poses_drones(const ros::Time & stamp) {
+    buf_lock.lock();
+    
     double min_dt = 10000;
 
     Swarm::Pose pose_drone;
+    std::map<int, Swarm::Pose> swarm_positions;
     while(pose_buf.size() > 0) {
         double dt = (pose_buf.front().first - stamp).toSec();
         // ROS_INFO("DT %f", dt);
@@ -443,6 +467,7 @@ Swarm::Pose SwarmDetector::get_pose_drone(const ros::Time & stamp) {
             //Pose in buffer is older
             if (fabs(dt) < min_dt) {
                 pose_drone = pose_buf.front().second;
+                swarm_positions = swarm_positions_buf.front();
                 min_dt = fabs(dt);
             }
         }
@@ -452,12 +477,14 @@ Swarm::Pose SwarmDetector::get_pose_drone(const ros::Time & stamp) {
             //pose in buffer is newer
             if (fabs(dt) < min_dt) {
                 pose_drone = pose_buf.front().second;
+                swarm_positions = swarm_positions_buf.front();
                 min_dt = fabs(dt);
             }
             break;
         }
 
         pose_buf.pop();
+        swarm_positions_buf.pop();
     }
 
 
@@ -466,12 +493,12 @@ Swarm::Pose SwarmDetector::get_pose_drone(const ros::Time & stamp) {
         ROS_WARN("[SWARM_DETECT] Pose dt %3.1fms  is too big!", min_dt * 1000);
     }
 
-    return pose_drone;
+    buf_lock.unlock();
+    return std::make_pair(pose_drone, swarm_positions);
 }
 
 
 void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
-    update_swarm_pose();
 
     auto cv_ptr = cv_bridge::toCvShare(msg, "rgb8");
     auto imgs = fisheye->undist_all_cuda(cv_ptr->image, true, enable_rear);
@@ -483,11 +510,11 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         imgs[i].download(img_cpus[i]);
         img_cpus_ptrs.push_back(&(img_cpus[i]));
     }
-    images_callback(msg->header.stamp, img_cpus_ptrs);
+    auto ret = get_poses_drones(msg->header.stamp);
+    images_callback(msg->header.stamp, img_cpus_ptrs, ret);
 }
 
 void SwarmDetector::image_comp_callback(const sensor_msgs::CompressedImageConstPtr &img_msg) {
-    update_swarm_pose();
 
     auto image = cv::imdecode(img_msg->data, cv::IMREAD_COLOR);
     auto imgs = fisheye->undist_all_cuda(image, true, enable_rear);
@@ -500,7 +527,8 @@ void SwarmDetector::image_comp_callback(const sensor_msgs::CompressedImageConstP
         img_cpus_ptrs.push_back(&(img_cpus[i]));
     }
     img_cpus_ptrs.push_back(&image);
-    images_callback(img_msg->header.stamp, img_cpus_ptrs);
+    auto ret = get_poses_drones(img_msg->header.stamp);
+    images_callback(img_msg->header.stamp, img_cpus_ptrs, ret);
 }
 
 cv::Mat img_empty;
@@ -534,15 +562,16 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
         }
     }
 
+    auto ret = get_poses_drones(flattened->header.stamp);
     std::vector<TrackedDrone> tracked_drones_up, tracked_drones_down;
     if (enable_up_cam) {
-        tracked_drones_up = images_callback(flattened->header.stamp, img_cpus);
+        tracked_drones_up = images_callback(flattened->header.stamp, img_cpus, ret);
     }
     if (enable_down_cam) {
-        tracked_drones_down = images_callback(flattened->header.stamp, img_cpus_down, true);
+        tracked_drones_down = images_callback(flattened->header.stamp, img_cpus_down, ret, true);
     }
 
-    auto pose_drone = get_pose_drone(flattened->header.stamp);
+    auto pose_drone = ret.first;
     
     if (enable_up_cam && enable_down_cam && enable_triangulation) {
         auto tracked_drones = stereo_triangulate(tracked_drones_up, tracked_drones_down);
@@ -647,7 +676,9 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
 }
 
 
-std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> &imgs, bool is_down_cam) {
+std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> &imgs, 
+        std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> poses_drones,
+        bool is_down_cam) {
     // bool require_detect = false;
     // if ((stamp - last_stamp).toSec() < detect_duration) {
     //     if (enable_tracker) {
@@ -660,7 +691,8 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
     last_stamp = stamp;
 
     int total_imgs = imgs.size();
-    auto pose_drone = get_pose_drone(stamp);
+    auto pose_drone = poses_drones.first;
+    auto swarm_positions = poses_drones.second;
     std::vector<TrackedDrone> detected_targets;
 
     std::vector<cv::Mat> debug_imgs(5);

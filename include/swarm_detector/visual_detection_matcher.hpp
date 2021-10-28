@@ -202,8 +202,8 @@ public:
             }
             Swarm::Pose pose_cam_local = pose_drone*pose_cams[i];
             for (size_t j = 0; j < swarm_est_ids.size(); j++) {
-                ROS_INFO("[SWARM_DETECT] draw_debug pose_drone %s pose_cam %s est %s", 
-                    pose_drone.tostr().c_str(), pose_cam_local.tostr().c_str(), swarm_est_poses[j].tostr().c_str());
+                // ROS_INFO("[SWARM_DETECT] draw_debug pose_drone %s pose_cam %s est %s", 
+                //     pose_drone.tostr().c_str(), pose_cam_local.tostr().c_str(), swarm_est_poses[j].tostr().c_str());
                 auto ret = reproject_drone_to_vcam(i, swarm_est_poses[j], pose_cam_local);
                 auto ret2 = reproject_point_to_vcam(i, Gc_imu, swarm_est_poses[j], pose_cam_local);
                 if (ret.first) {
@@ -224,6 +224,7 @@ public:
             auto cost = construct_cost_matrix(detected_targets, swarm_est_poses, tracked_drones);
             KM km(cost);
             auto matched = km.getMatch(0); //This returns the detected targets matched to the object. length equals to max(cols, rows). The output corresponding to det1 det2.. detN
+
             // std::cout << "Matched size" << matched.size() << ": [";
             // for (size_t i = 0; i < matched.size(); i ++) {
             //     std::cout << matched[i] << " ";
@@ -238,12 +239,14 @@ public:
                 } else if (matched_to < swarm_est_ids.size() + tracked_drones.size() && matched_to >= 0) {
                     assigned_id = tracked_drones[matched_to-swarm_est_ids.size()]._id;
                 }
-                printf("%ld->%d (matched_to drone-%d)", i, assigned_id, matched_to);
 
-                if (assigned_id >= 0 && cost(i, matched_to) > 0) {
+                if (assigned_id >= 0 && cost(matched_to, i) > 0) {
                     auto target = detected_targets[i];
                     target._id = assigned_id;
                     matched_targets.emplace_back(target);
+                    printf("%ld->drone%d (matched_to: %d)", i, assigned_id, matched_to);
+                } else {
+                    printf("%ld->drone%d (matched_to: %d) failed: cost %.1f", i, assigned_id, matched_to, cost(matched_to, i));
                 }
             }
             std::cout << std::endl;
