@@ -406,6 +406,7 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         nd.dpos.z = p_drone_yaw_only.z();
         
         Swarm::Pose extrinsic_no_att =Swarm::Pose(Vector3d(0, 0, 0), local_quat_no_yaw)*Swarm::Pose(extrinsic.pos(), Quaterniond::Identity());
+        extrinsic_no_att.att().setIdentity();
         nd.camera_extrinsic = extrinsic_no_att.to_ros_pose();
         nd.local_pose_self = local_pose_self.to_ros_pose();
 
