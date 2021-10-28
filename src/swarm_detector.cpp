@@ -196,14 +196,15 @@ void SwarmDetector::onInit()
     for( int i = 0; i < 256; ++i)
         p[i] = cv::saturate_cast<uchar>(pow(i / 255.0, gamma_) * 255.0);
 
-    fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
-    fisheye_img_comp_sub = nh.subscribe("image_comp", 3, &SwarmDetector::image_comp_callback, this);
+    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected_raw", 3);
+    node_detected_pub = nh.advertise<swarm_msgs::node_detected_xyzyaw>("/swarm_drones/node_detected", 3);
+    image_show_pub = nh.advertise<sensor_msgs::Image>("show", 1);
+
+    odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
     vins_imgs_sub = nh.subscribe("vins_flattened", 3, &SwarmDetector::flattened_image_callback, this);
     swarm_fused_sub = nh.subscribe("swarm_fused", 3, &SwarmDetector::swarm_fused_callback, this);
-    swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected_raw", 3);
-    odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
-
-    image_show_pub = nh.advertise<sensor_msgs::Image>("show", 1);
+    fisheye_img_sub = nh.subscribe("image_raw", 3, &SwarmDetector::image_callback, this);
+    fisheye_img_comp_sub = nh.subscribe("image_comp", 3, &SwarmDetector::image_comp_callback, this);
     
     ROS_INFO("[SWARM_DETECT] Finish initialize swarm detector, wait for data\n");
 
@@ -374,18 +375,17 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         node_detected_xyzyaw nd;
         std::pair<Eigen::Vector3d, double> det;
         det = tdrone.get_detection_drone_frame();
-        Eigen::Vector3d p_drone = det.first;
-        Eigen::Vector3d p_drone_yaw_only = Eigen::AngleAxisd(-local_pose_self.yaw(), Eigen::Vector3d::UnitZ())*local_pose_self.att() * p_drone;
+        Eigen::Vector3d p_drone_body = det.first;
+        Quaterniond local_quat_no_yaw = Eigen::AngleAxisd(-local_pose_self.yaw(), Eigen::Vector3d::UnitZ())*local_pose_self.att();
+        Eigen::Vector3d p_drone_yaw_only = local_quat_no_yaw * p_drone_body;
         p_drone_yaw_only.normalize();
         nd.dpos.x = p_drone_yaw_only.x();
         nd.dpos.y = p_drone_yaw_only.y();
         nd.dpos.z = p_drone_yaw_only.z();
 
-        Swarm::Pose pose_cam = local_pose_self*extrinsic;
-        nd.camera_extrinsic = extrinsic.to_ros_pose();
-        Swarm::Pose pose_cam_yaw_only = pose_cam;
-        pose_cam_yaw_only.set_yaw_only();
-        nd.local_pose_self = pose_cam_yaw_only.to_ros_pose();
+        Swarm::Pose extrinsic_no_yaw =Swarm::Pose(Vector3d(0, 0, 0), local_quat_no_yaw)*extrinsic;
+        nd.camera_extrinsic = extrinsic_no_yaw.to_ros_pose();
+        nd.local_pose_self = local_pose_self.to_ros_pose();
 
 
         nd.enable_scale = true;
@@ -401,7 +401,7 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
             1/nd.inv_dep
         );
 
-        pose_cam_yaw_only.print();
+        node_detected_pub.publish(nd);
 
         detected_nodes.push_back(nd);
     }
@@ -768,18 +768,20 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
     }
 
     for (auto &trk: tracked_drones) {
-        auto cam = fisheye->cam_side;
-        if (trk.direction == 0) {
-            cam = fisheye->cam_top;
-        }
-        auto R = Rcams[trk.direction];
-        if (is_down_cam) {
-            R = Rcams_down[trk.direction];
-        }
-        trk.setCameraIntrinsicExtrinsic(R, cam);
+        if (pub_track_result) {
+            auto cam = fisheye->cam_side;
+            if (trk.direction == 0) {
+                cam = fisheye->cam_top;
+            }
+            auto R = Rcams[trk.direction];
+            if (is_down_cam) {
+                R = Rcams_down[trk.direction];
+            }
+            trk.setCameraIntrinsicExtrinsic(R, cam);
 
-        if (dets.find(trk._id) == dets.end() ) {
-            ret.emplace_back(trk);
+            if (dets.find(trk._id) == dets.end() ) {
+                ret.emplace_back(trk);
+            }
         }
     }
 

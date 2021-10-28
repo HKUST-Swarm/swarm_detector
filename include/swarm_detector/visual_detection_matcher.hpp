@@ -53,7 +53,7 @@ public:
         double z_max = 0.1;
         double z_min = -0.1;
         double z_mid = 0.05;
-        Vector3d Gc_imu(-0.06, 0, 0);
+        Vector3d Gc_imu(-0.06, 0, 0.00);
 
         boundbox3d_corners = std::vector<Vector3d>{
             Vector3d(w_2, h_2, z_mid) + Gc_imu,
@@ -210,9 +210,9 @@ public:
             for (size_t i = 0; i < detected_targets.size(); i ++) {
                 auto matched_to = matched[i];
                 auto assigned_id = -1;
-                if (matched_to < swarm_est_ids.size() && matched_to > 0) {
+                if (matched_to < swarm_est_ids.size() && matched_to >= 0) {
                     assigned_id = swarm_est_ids[matched_to];
-                } else if (matched_to < swarm_est_ids.size() + tracked_drones.size() && matched_to > 0) {
+                } else if (matched_to < swarm_est_ids.size() + tracked_drones.size() && matched_to >= 0) {
                     assigned_id = tracked_drones[matched_to-swarm_est_ids.size()]._id;
                 }
                 printf("%ld->%d (matched_to drone-%d)", i, assigned_id, matched_to);

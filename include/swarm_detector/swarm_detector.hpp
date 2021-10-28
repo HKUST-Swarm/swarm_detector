@@ -41,6 +41,7 @@ private:
     ros::Subscriber swarm_fused_sub;
     ros::Publisher swarm_detected_pub;
     ros::Publisher image_show_pub;
+    ros::Publisher node_detected_pub;
     ros::Subscriber odom_sub;
     void init_camera_extrinsics() {
         std::vector<Eigen::Quaterniond> Rvcams;
