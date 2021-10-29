@@ -84,8 +84,7 @@ void SwarmDetector::onInit()
     double thres, overlap_thres;
     double p_track;
     double min_p;
-    double acpt_direction_thres;
-    double acpt_inv_dep_thres;
+    double acpt_overlap_thres;
 
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
@@ -116,10 +115,8 @@ void SwarmDetector::onInit()
     nh.param<bool>("enable_up_cam", enable_up_cam, false);
     nh.param<bool>("enable_down_cam", enable_down_cam, true);
 
-    //Is in degree
-    nh.param<double>("acpt_direction_thres", acpt_direction_thres, 10);
-    //Is in pixels
-    nh.param<double>("acpt_inv_dep_thres", acpt_inv_dep_thres, 10);
+    //Is in %
+    nh.param<double>("acpt_overlap_thres", acpt_overlap_thres, 20);
     cv::Mat R, T;
 
     FILE *fh = fopen(extrinsic_path.c_str(), "r");
@@ -192,8 +189,8 @@ void SwarmDetector::onInit()
         drone_trackers_down.emplace_back(new DroneTracker(i, p_track, min_p, drone_scale, focal_length));
     }
 
-    visual_detection_matcher_up = new VisualDetectionMatcher(Pcam, Rcams, fisheye, acpt_direction_thres, acpt_inv_dep_thres, debug_show);
-    visual_detection_matcher_down = new VisualDetectionMatcher(Pcam, Rcams_down, fisheye, acpt_direction_thres, acpt_inv_dep_thres, debug_show);
+    visual_detection_matcher_up = new VisualDetectionMatcher(Pcam, Rcams, fisheye, acpt_overlap_thres, debug_show);
+    visual_detection_matcher_down = new VisualDetectionMatcher(Pcam, Rcams_down, fisheye, acpt_overlap_thres, debug_show);
 
     uchar* p = lookUpTable.ptr();
     for( int i = 0; i < 256; ++i)

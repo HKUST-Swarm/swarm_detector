@@ -6,6 +6,7 @@
 #include <eigen3/Eigen/Eigen>
 #include <camodocal/camera_models/PinholeCamera.h>
 #include <algorithm>
+#include <ros/ros.h>
 
 static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
@@ -75,15 +76,6 @@ struct TrackedDrone {
         return Eigen::Vector2d(d_cam.adjoint()*unit_p_cam, inv_dep - _inv_dep);
     }
 
-    double bbox_cx() const { 
-        return bbox.x + bbox.width/2;
-    }
-    
-    double bbox_cy() const { 
-        return bbox.x + bbox.width/2;
-    }
-
-    
     double overlap(const TrackedDrone &drone2) const {
         return overlap(drone2.bbox);
     }
@@ -110,11 +102,6 @@ struct TrackedDrone {
     //Return a virtual distance
     Eigen::Vector2d distance_to_drone(TrackedDrone tracked_drone) {
         return Eigen::Vector2d(tracked_drone.unit_p_cam.adjoint()*unit_p_cam, inv_dep - tracked_drone.inv_dep);
-    }
-
-    double distance_bbox_to_drone(TrackedDrone tracked_drone) {
-        // return ...;
-        return 0;
     }
 };
 
