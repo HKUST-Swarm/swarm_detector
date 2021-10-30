@@ -630,6 +630,10 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
             show = show_down;
         }
 
+        char title[100] = {0};
+        sprintf(title, "%s/DroneTracker/DroneTracker%d-%06d.jpg", output_path.c_str(), self_id, img_count);
+        cv::imwrite(title, show);
+        
         double f_resize = ((double)show_width) / (double)show.cols;
         cv::resize(show, show, cv::Size(), f_resize, f_resize);
 
@@ -638,9 +642,6 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
             sprintf(title, "DroneTracker@%d", self_id);
             cv::imshow(title, show);
             cv::waitKey(3);
-
-            sprintf(title, "%s/DroneTracker%d-%d.jpg", output_path.c_str(), self_id, img_count);
-            cv::imwrite(title, show);
         } else if (pub_image){
             cv_bridge::CvImage cvimg;
             cvimg.encoding = sensor_msgs::image_encodings::BGR8;
@@ -760,6 +761,19 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
                 }
  
                 if (debug_show || pub_image) {
+                    char title_up[256] = {0};
+                    char title_down[256] = {0};
+                    sprintf(title_up, "%s/DroneDetected/DroneDetected%d-%06d.jpg", output_path.c_str(), self_id, img_count);
+                    sprintf(title_down, "%s/DroneDetected/DroneDetected%d-%06d-down.jpg", output_path.c_str(), self_id, img_count);
+                    imwrite(title_up, *images_up[dir]);
+                    imwrite(title_down, *images_down[dir]);
+
+
+                    sprintf(title_up, "%s/DroneDetected/DroneDetected%d-%06d.txt", output_path.c_str(), self_id, img_count);
+                    FILE * file = fopen(title_up, "w");
+                    fprintf(file, "%4.3f %4.3f %4.3f %4.3f", drone_up.bbox.x, drone_up.bbox.y, drone_up.bbox.width, drone_up.bbox.height);
+                    fclose(file);
+
                     // auto crop_up = (*images_up[dir])(drone_up.bbox);
                     // auto crop_down = (*images_down[dir])(rect);
                     // int new_rows = ((double) crop_up.cols)/((double) crop_down.cols)*crop_down.rows;
