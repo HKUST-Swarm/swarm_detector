@@ -77,6 +77,7 @@ void SwarmDetector::onInit()
     std::string darknet_weights_path;
     std::string darknet_cfg;
     std::string camera_config_file;
+    std::string camera_down_config_file;
     std::string extrinsic_path;
     bool track_matched_only = false;
     bool tensorrt_fp16 = false;
@@ -95,6 +96,7 @@ void SwarmDetector::onInit()
     nh.param<std::string>("weights", darknet_weights_path, "");
     nh.param<std::string>("darknet_cfg", darknet_cfg, "");
     nh.param<std::string>("cam_file", camera_config_file, "");
+    nh.param<std::string>("cam_file_down", camera_down_config_file, "");
     nh.param<double>("fov", fov, 235);
     nh.param<double>("thres", thres, 0.2);
     nh.param<double>("overlap_thres", overlap_thres, 0.6);
@@ -117,6 +119,7 @@ void SwarmDetector::onInit()
 
     //Is in %
     nh.param<double>("acpt_overlap_thres", acpt_overlap_thres, 20);
+    nh.param<double>("triangulation_thres", triangulation_thres, 0.1);
     cv::Mat R, T;
 
     FILE *fh = fopen(extrinsic_path.c_str(), "r");
@@ -168,6 +171,7 @@ void SwarmDetector::onInit()
     }
 
     fisheye = new FisheyeUndist(camera_config_file, fov, true, width);
+    fisheye_down = new FisheyeUndist(camera_down_config_file, fov, true, width);
     side_height = fisheye->sideImgHeight;
 
 
@@ -190,7 +194,7 @@ void SwarmDetector::onInit()
     }
 
     visual_detection_matcher_up = new VisualDetectionMatcher(Pcam, Rcams, fisheye, acpt_overlap_thres, debug_show);
-    visual_detection_matcher_down = new VisualDetectionMatcher(Pcam, Rcams_down, fisheye, acpt_overlap_thres, debug_show);
+    visual_detection_matcher_down = new VisualDetectionMatcher(Pcam_down, Rcams_down, fisheye, acpt_overlap_thres, debug_show);
 
     uchar* p = lookUpTable.ptr();
     for( int i = 0; i < 256; ++i)
@@ -308,9 +312,6 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const cv::Mat & _
     }
     
     double z_calib = 0;
-    if (is_down_cam) {
-        z_calib = DOWN_Z_OFFSET;
-    }
 
     for (auto det : detected_targets) {
         double x1 = det.first.x;
@@ -322,7 +323,7 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const cv::Mat & _
         }
 
         auto _target = TrackedDrone(-1, det.first, ((double)det.first.width)/(drone_scale*focal_length), 
-            det.second, z_calib, direction);
+            det.second, direction);
         detected_targets_drones.emplace_back(_target);
     }
 
@@ -351,7 +352,7 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const cv::Mat & _
             // sprintf(idtext, "(%3.1f\%)", ret.second*100);
 	        // cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 0, 0), 2);
             // cv::rectangle(debug_img, ret.first, cv::Scalar(255, 10, 0), 2);
-            cv::rectangle(debug_img, ret.first, cv::Scalar(0, 255, 0), 2);
+            cv::rectangle(debug_img, ret.first, cv::Scalar(0, 0, 255), 2);
             // sprintf(idtext, "(%3.1f,%3.1f)", ret.first.x + ret.first.width/2, ret.first.y + ret.first.height/2);
 	        // cv::putText(debug_img, idtext, pos, CV_FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 0, 0), 2);
             cv::Point2f p(ret.first.x + ret.first.width/2, ret.first.y + ret.first.height/2);
@@ -509,7 +510,19 @@ void SwarmDetector::image_callback(const sensor_msgs::Image::ConstPtr &msg) {
         img_cpus_ptrs.push_back(&(img_cpus[i]));
     }
     auto ret = get_poses_drones(msg->header.stamp);
-    images_callback(msg->header.stamp, img_cpus_ptrs, ret);
+    cv::Mat show;
+    images_callback(msg->header.stamp, img_cpus_ptrs, ret, show);
+    if (debug_show) {
+        char title[100] = {0};
+        sprintf(title, "DroneTracker@%d", self_id);
+        cv::imshow(title, show);
+        cv::waitKey(3);
+    } else if (pub_image){
+        cv_bridge::CvImage cvimg;
+        cvimg.encoding = sensor_msgs::image_encodings::BGR8;
+        cvimg.image = show;
+        image_show_pub.publish(cvimg);
+    }
 }
 
 void SwarmDetector::image_comp_callback(const sensor_msgs::CompressedImageConstPtr &img_msg) {
@@ -526,7 +539,19 @@ void SwarmDetector::image_comp_callback(const sensor_msgs::CompressedImageConstP
     }
     img_cpus_ptrs.push_back(&image);
     auto ret = get_poses_drones(img_msg->header.stamp);
-    images_callback(img_msg->header.stamp, img_cpus_ptrs, ret);
+    cv::Mat show;
+    images_callback(img_msg->header.stamp, img_cpus_ptrs, ret, show);
+    if (debug_show) {
+        char title[100] = {0};
+        sprintf(title, "DroneTracker@%d", self_id);
+        cv::imshow(title, show);
+        cv::waitKey(3);
+    } else if (pub_image){
+        cv_bridge::CvImage cvimg;
+        cvimg.encoding = sensor_msgs::image_encodings::BGR8;
+        cvimg.image = show;
+        image_show_pub.publish(cvimg);
+    }
 }
 
 cv::Mat img_empty;
@@ -562,17 +587,21 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
 
     auto ret = get_poses_drones(flattened->header.stamp);
     std::vector<TrackedDrone> tracked_drones_up, tracked_drones_down;
+    cv::Mat show_up, show_down;
     if (enable_up_cam) {
-        tracked_drones_up = images_callback(flattened->header.stamp, img_cpus, ret);
+        tracked_drones_up = images_callback(flattened->header.stamp, img_cpus, ret, show_up);
     }
-    if (enable_down_cam) {
-        tracked_drones_down = images_callback(flattened->header.stamp, img_cpus_down, ret, true);
-    }
+
+    // //Not detect on down but do feature track.
+    // if (enable_down_cam) {
+    //     tracked_drones_down = images_callback(flattened->header.stamp, img_cpus_down, ret, show_down, true);
+    // }
 
     auto pose_drone = ret.first;
     
     if (enable_up_cam && enable_down_cam && enable_triangulation) {
-        auto tracked_drones = stereo_triangulate(tracked_drones_up, tracked_drones_down);
+        visual_detection_matcher_down->set_swarm_state(pose_drone, ret.second);
+        auto tracked_drones = stereo_triangulate(tracked_drones_up, img_cpus, img_cpus_down, show_up, show_down);
         publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones.first, tracked_drones.second);
     } else {
         std::vector<TrackedDrone> tracked_drones;
@@ -588,6 +617,32 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
         }
         
         publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones, extrinsics);
+    }
+
+    if (debug_show || pub_image) {
+        cv::Mat show;
+        if (enable_up_cam && enable_down_cam) {
+            cv::vconcat(show_up, show_down, show);
+        } else if(enable_up_cam) {
+            show = show_up;
+        } else if(enable_down_cam) {
+            show = show_down;
+        }
+
+        double f_resize = ((double)show_width) / (double)show.cols;
+        cv::resize(show, show, cv::Size(), f_resize, f_resize);
+
+        if (debug_show) {
+            char title[100] = {0};
+            sprintf(title, "DroneTracker@%d", self_id);
+            cv::imshow(title, show);
+            cv::waitKey(3);
+        } else if (pub_image){
+            cv_bridge::CvImage cvimg;
+            cvimg.encoding = sensor_msgs::image_encodings::BGR8;
+            cvimg.image = show;
+            image_show_pub.publish(cvimg);
+        }
     }
 }
 
@@ -625,23 +680,50 @@ double triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<d
 }
 
 
-std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::stereo_triangulate(std::vector<TrackedDrone> tracked_up, std::vector<TrackedDrone> tracked_down) {
+std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::stereo_triangulate(std::vector<TrackedDrone> tracked_up, 
+        const std::vector<const cv::Mat *> & images_up, const std::vector<const cv::Mat *> & images_down, 
+        cv::Mat & _show_up, cv::Mat & _show_down) {
     std::vector<TrackedDrone> tracked_drones;
     std::vector<Swarm::Pose> extrinsics;
     std::set<int> stereo_drones;
+    std::vector<cv::Mat> debug_imgs;
+    if (debug_show || pub_image) {
+        for (auto mat_ptr : images_down) {
+            debug_imgs.emplace_back(cv::Mat());
+            mat_ptr->copyTo(debug_imgs.back());
+        }
+        visual_detection_matcher_down->draw_debug(debug_imgs);
+    }
     for (auto drone_up: tracked_up) {
-        for (auto drone_down: tracked_down) {
-            if (drone_up._id == drone_down._id) {
-                //Perform triangulation here
-                //To simplify, we use identity pose since the DroneTracker gives direction already included the ric.
-                //Result is at drone frame.
+            //First init a visual tracker and track to down image.
+            auto tracker = cv::TrackerCSRT::create();
+            auto dir = drone_up.direction;
+            if (dir == 0) {
+                //TODO: No scale.
+                tracked_drones.emplace_back(drone_up);
+                extrinsics.emplace_back(Swarm::Pose(Pcam, Quaterniond::Identity()));
+                continue;
+            }
+            tracker->init(*images_up[dir], drone_up.bbox);
+            cv::Rect2d rect;
+            auto succ = tracker->update(*images_down[dir], rect);
+            TrackedDrone drone_down(drone_up._id, rect, drone_up.inv_dep, drone_up.probaility, dir);
+            auto cam = fisheye_down->cam_side;
+            drone_down.setCameraIntrinsicExtrinsic(Rcams_down[dir], cam);
+
+            // delete tracker;
+            if (succ) {
+
+                // //Perform triangulation here
+                // //To simplify, we use identity pose since the DroneTracker gives direction already included the ric.
+                // //Result is at drone frame.
                 Eigen::Matrix<double, 3, 4> upPose, downPose;
-                Eigen::Vector3d _Pcam(0, 0, FIXED_CAM_UP_Z), _Pcam_down(0, 0, FIXED_CAM_DOWN_Z);
+                // Eigen::Vector3d _Pcam(0, 0, FIXED_CAM_UP_Z), _Pcam_down(0, 0, FIXED_CAM_DOWN_Z);
                 upPose.leftCols<3>() = Eigen::Matrix3d::Identity();
-                upPose.rightCols<1>() = -Eigen::Matrix3d::Identity() * _Pcam;
+                upPose.rightCols<1>() = - Pcam;
 
                 downPose.leftCols<3>() = Eigen::Matrix3d::Identity();
-                downPose.rightCols<1>() = -Eigen::Matrix3d::Identity() * _Pcam_down;
+                downPose.rightCols<1>() = - Pcam_down;
 
                 Eigen::Vector3d pos_drone;
                 auto det_up = drone_up.get_detection_drone_frame();
@@ -650,32 +732,60 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
                 std::cout << "Pcam" << Pcam.transpose() << "Pcam_down" << Pcam_down.transpose() << std::endl;
                 double err = triangulatePoint3DPts(upPose, downPose, 
                     det_up.first, det_down.first, pos_drone);
+                
                 if (err < triangulation_thres) {
                     drone_up.is_stereo = true;
-                    drone_up.unit_p_cam = pos_drone;
-                    drone_up.unit_p_cam.normalize();
+                    drone_up.unit_p_drone = pos_drone;
+                    drone_up.unit_p_drone.normalize();
                     drone_up.inv_dep = 1/(pos_drone.norm()+BBOX_DEPTH_OFFSET);
+                    drone_up.is_depth_good = true;
 
-                    ROS_INFO("[SWARM_DETECT] Stereo drone %d, pos_drone: %3.2f %3.2f %3.2f tri_err %3.2f", drone_up._id, pos_drone.x(), pos_drone.y(), pos_drone.z(), err*1000);
+                    printf("[SWARM_DETECT] Stereo drone %d, pos_drone: %3.2f %3.2f %3.2f tri_err %3.2f", drone_up._id, pos_drone.x(), pos_drone.y(), pos_drone.z(), err*1000);
                     tracked_drones.push_back(drone_up);
                     extrinsics.push_back(Swarm::Pose());
                     stereo_drones.insert(drone_up._id);
-                    break;
                 } else {
-                    ROS_WARN("[SWARM_DETECT] Stereo drone %d, pos_drone: %3.2f %3.2f %3.2f tri_err %3.2f", drone_up._id, pos_drone.x(), pos_drone.y(), pos_drone.z(), err*1000);
-                    // exit(-1);
+                    printf("[SWARM_DETECT] Stereo drone %d, pos_drone: %3.2f %3.2f %3.2f tri_err %3.2f", drone_up._id, pos_drone.x(), pos_drone.y(), pos_drone.z(), err*1000);
                 }
+
+                if (debug_show || pub_image) {
+                    // auto crop_up = (*images_up[dir])(drone_up.bbox);
+                    // auto crop_down = (*images_down[dir])(rect);
+                    // int new_rows = ((double) crop_up.cols)/((double) crop_down.cols)*crop_down.rows;
+                    // cv::resize(crop_down, crop_down, cv::Size(crop_up.cols, new_rows));
+                    // cv::vconcat(crop_up, crop_down, crop_up);
+                    // cv::resize(crop_up, crop_up, cv::Size(0, 0), 1080.0/crop_up.cols, 1080.0/crop_up.cols);
+                    // cv::imshow("Crop", crop_up);
+                    cv::rectangle(debug_imgs[dir], rect, cv::Scalar(0, 0, 255), 2);
+                }
+            } else {
+                // ROS_INFO("Mosse failed on up to down tracking...");
+                // tracked_drones.emplace_back(drone_up);
+                // extrinsics.emplace_back(Swarm::Pose(Pcam, Quaterniond::Identity()));
             }
-        }
     }
 
+    if (debug_show || pub_image) {
+        if (!debug_imgs[0].empty()) {
+            cv::resize(debug_imgs[0], _show_down, cv::Size(debug_imgs[1].rows, debug_imgs[1].rows));
+        } else{
+            _show_down = debug_imgs[1];
+        }
+
+        cv::hconcat(_show_down, debug_imgs[2], _show_down);
+        cv::hconcat(_show_down, debug_imgs[3], _show_down);
+        if (enable_rear) {
+            cv::hconcat(_show_down, debug_imgs[4], _show_down);
+        }
+        
+    }
     //Only stereo detection is used
     return std::make_pair(tracked_drones, extrinsics);
 }
 
 
 std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp, const std::vector<const cv::Mat *> &imgs, 
-        std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> poses_drones,
+        std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> poses_drones, cv::Mat & _show,
         bool is_down_cam) {
     // bool require_detect = false;
     // if ((stamp - last_stamp).toSec() < detect_duration) {
@@ -826,7 +936,6 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
             visual_detection_matcher_down->draw_debug(debug_imgs);
         }
 
-        cv::Mat _show;
         if (imgs.size() > 5) {
             _show = *imgs[5];
             _show = _show(cv::Rect((_show.cols - _show.rows)/2, 0, _show.rows, _show.rows));
@@ -851,26 +960,6 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
         if (enable_rear) {
             cv::hconcat(_show, debug_imgs[4], _show);
         }
-
-        // cv::imwrite("/home/xuhao/detector.png", _show);
-        double f_resize = ((double)show_width) / (double)_show.cols;
-        cv::resize(_show, _show, cv::Size(), f_resize, f_resize);
-
-	    if (debug_show) {
-            char title[100] = {0};
-            if (is_down_cam) {
-                sprintf(title, "DroneTrackerDown@%d", self_id);
-            } else {
-                sprintf(title, "DroneTrackerUP@%d", self_id);
-            }
-       	    cv::imshow(title, _show);
-            cv::waitKey(3);
-	    } else {
-	        cv_bridge::CvImage cvimg;
-	        cvimg.encoding = sensor_msgs::image_encodings::BGR8;
-	        cvimg.image = _show;
-            image_show_pub.publish(cvimg);
-	    }
     }
 
     return ret;

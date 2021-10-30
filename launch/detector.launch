@@ -4,6 +4,7 @@
   <arg name="show" default="false" />
   <arg name="image_topic" default="/pg_$(arg device)/image_raw" />
   <arg name="cam_file" default="$(find swarm_detector)/config/ptgrey_17591762_camera_calib.yaml" />
+  <arg name="cam_file_down" default="$(find swarm_detector)/config/ptgrey_17591762_camera_calib.yaml" />
   <arg name="output" default="screen" />
   <arg name="pub_image" default="false" />
   <arg name="drone_id" default="1" />
@@ -24,6 +25,7 @@
     <remap from="~swarm_fused" to="$(arg swarm_fused)" />
 
     <param name="cam_file" type="string" value="$(arg cam_file)" />
+    <param name="cam_file_down" type="string" value="$(arg cam_file_down)" />
     <!-- <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
     <param name="darknet_cfg" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.cfg" />     -->
     <param name="weights" type="string" value="$(find swarm_detector)/config/yolov4-tiny-drone.weights" />
@@ -49,9 +51,10 @@
       use_tensorrt: true
       tensorrt_fp16: true
       enable_tracker: true
-      enable_triangulation: false
+      enable_triangulation: true
       enable_up_cam: true
-      enable_down_cam: false
+      enable_down_cam: true
+      triangulation_thres: 0.2
       gamma: 0.6
     </rosparam>
   </node>

@@ -19,17 +19,18 @@ struct TrackedDrone {
 
     cv::Rect2d bbox;
     Eigen::Vector3d unit_p_cam;
+    Eigen::Vector3d unit_p_drone;
     double probaility = 1.0;
     double inv_dep = 0;
     Eigen::Vector2d center;
-    double z_calib = 0;
     camodocal::PinholeCameraPtr cam;
     int direction;
+    bool is_depth_good = false;
     TrackedDrone() {}
 
-    TrackedDrone(int id, cv::Rect2d _rect, double _inv_dep, double _p, double _z_calib, int _direction):
-        _id(id), bbox(_rect), inv_dep(_inv_dep), probaility(_p), center(_rect.x + _rect.width/2.0, _rect.y + _rect.height/2.0), 
-        z_calib(_z_calib), direction(_direction)
+    TrackedDrone(int id, cv::Rect2d _rect, double _inv_dep, double _p, int _direction):
+        _id(id), bbox(_rect), inv_dep(_inv_dep), probaility(_p), 
+        center(_rect.x + _rect.width/2.0, _rect.y + _rect.height/2.0), direction(_direction)
     {
     }
 
@@ -40,40 +41,15 @@ struct TrackedDrone {
         cam = _cam;
 
         _cam->liftProjective(center, p3d);
-        unit_p_cam = p3d.normalized() + Eigen::Vector3d(0, -z_calib, 0);
+        unit_p_cam = p3d.normalized();
         unit_p_cam.normalize();
-        unit_p_cam = _ric*unit_p_cam;
+        unit_p_drone = _ric*unit_p_cam;
     }
 
     //Note this function's the direction and inv_dep return in drone fram
     //ret = ric*unit_p_cam
     std::pair<Eigen::Vector3d, double> get_detection_drone_frame() {
-        return std::make_pair(unit_p_cam, inv_dep);
-    }
-
-    //Return a virtual distance
-    Eigen::Vector2d distance_to_drone(Eigen::Vector3d _pos, 
-        Eigen::Vector3d tic, Eigen::Matrix3d ric, 
-        Eigen::Matrix3d Rdrone, 
-        Eigen::Vector3d Tdrone, 
-        double focal_length = 256, 
-        double scale = 0.6) {
-        // auto ypr_drone =  R2ypr(Rdrone, false);
-        // Rdrone = Eigen::AngleAxisd(-ypr_drone(0), Eigen::Vector3d(0, 0, 1)) * Rdrone;
-        _pos = _pos - Tdrone;
-        std::cout <<"\nFused Pbody "<< (Rdrone.transpose() * _pos).transpose() << std::endl;
-        std::cout <<"Detec Pbody "<< (ric * unit_p_cam / inv_dep + tic).transpose() << std::endl;
-        // auto up = ric*Eigen::Vector3d(0,0,1);
-        // std::cout <<"Cam up_body " <<  up.transpose() << std::endl;
-        // std::cout << "ric" << ric <<std::endl;
-        Eigen::Vector3d d_cam = ric.transpose() * (Rdrone.transpose() * _pos - tic);
-        double _inv_dep = 1/d_cam.norm();
-        d_cam.normalize();
-
-        double est_bbx_width = _inv_dep*focal_length*scale;
-	    printf("Fused Pos [%3.2f, %3.2f,%3.2f]: inv_dep detection: %f fused %f\n", _pos.x(), _pos.y(), _pos.z(), _inv_dep, inv_dep);
-        std::cout << "Pcam detection: " << unit_p_cam.transpose() << " Pcam fused:" << d_cam.transpose() << std::endl;
-        return Eigen::Vector2d(d_cam.adjoint()*unit_p_cam, inv_dep - _inv_dep);
+        return std::make_pair(unit_p_drone, inv_dep);
     }
 
     double overlap(const TrackedDrone &drone2) const {
@@ -99,13 +75,7 @@ struct TrackedDrone {
         return SI / std::max(SA, SB);
     }
 
-    //Return a virtual distance
-    Eigen::Vector2d distance_to_drone(TrackedDrone tracked_drone) {
-        return Eigen::Vector2d(tracked_drone.unit_p_cam.adjoint()*unit_p_cam, inv_dep - tracked_drone.inv_dep);
-    }
 };
-
-
 
 class DroneTracker {
 
@@ -128,43 +98,6 @@ class DroneTracker {
     double drone_scale;
     double focal_length;
 
-    // int match_with_trackers(TrackedDrone &tdrone) {
-    //     //Match with trackers
-    //     //Here we should use bbox to match the result.
-    //     int best_id_tracker = -1;
-
-    //     printf("[SWARM_DETECT](DroneTracker) Process detected drone: depth %3.2f prob %3.2f width %3.0f \n", 
-    //         1/tdrone.inv_dep, tdrone.probaility, tdrone.width);
-
-    //     for (auto & it: tracking_drones) {
-    //         auto dis2d = tdrone.distance_to_drone(it.second);
-    //         double angle = acos(dis2d.x());
-            
-    //         //Maybe we should compare only bounding box for tracker drone
-    //         double w_det = tdrone.bbox.width;
-    //         double pixel_error = fabs(dis2d.y())/w_det;
-    //         double angle_error = fabs(angle/(drone_scale*it.second.inv_dep));
-
-    //         ROS_INFO("[SWARM_DETECT](DroneTracker) Match tracker %d dis [%f, %f] err [%f/%f, %f/%f]", it.first, 
-    //             dis2d.x(), dis2d.y(),
-    //             angle*180.0/M_PI, accept_direction_thres,
-    //             pixel_error, accept_inv_depth_thres);
-
-    //         if (angle < accept_direction_thres && pixel_error < accept_inv_depth_thres) {
-    //             if (angle + INV_DEP_COEFF*pixel_error < best_cost) {
-    //                 if (matched_on_estimate_drone && it.first < MAX_DRONE_ID)
-    //                 best_cost = angle + INV_DEP_COEFF*pixel_error;
-    //                 best_id_tracker = it.first;
-    //                 ROS_INFO("[SWARM_DETECT](DroneTracker) Matched on tracker drone %d...", best_id);
-    //             }
-    //         }
-    //     }
-
-    //     return best_id_tracker;
-    // }
-
-
-
 public:
 
     DroneTracker(int _direction, double _p_track, double _min_p, double _drone_scale, double _focal_length):
@@ -182,8 +115,7 @@ public:
             if (success) {
                 assert(tracking_drones.find(_id)!=tracking_drones.end() && "Tracker not found in tracked drones!");
                 auto old_tracked = tracking_drones[_id];
-                TrackedDrone TDrone(_id, rect, ((double)rect.width)/(drone_scale*focal_length), old_tracked.probaility*p_track, 
-                    old_tracked.z_calib, direction);
+                TrackedDrone TDrone(_id, rect, ((double)rect.width)/(drone_scale*focal_length), old_tracked.probaility*p_track, direction);
 
                 if (TDrone.probaility > min_p) {
                     ret.push_back(TDrone);
@@ -198,6 +130,7 @@ public:
 
         for (auto _id : failed_id) {
             ROS_INFO("Remove tracker of drone %d", _id);
+            // delete trackers[_id];
             trackers.erase(_id);
             tracking_drones.erase(_id);
         }
@@ -208,6 +141,7 @@ public:
     void start_tracker_tracking(const TrackedDrone & detected_drone, const cv::Mat & frame) {
         if (trackers.find(detected_drone._id) != trackers.end()) {
             trackers.erase(detected_drone._id);
+            // delete trackers[detected_drone._id];
         }
         auto tracker = cv ::TrackerMOSSE::create();
         // auto tracker = cv::TrackerMedianFlow::create();

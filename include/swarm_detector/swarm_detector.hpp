@@ -34,6 +34,7 @@ public:
 
 private:
     FisheyeUndist *fisheye = nullptr;
+    FisheyeUndist *fisheye_down = nullptr;
     BaseDetector *detector = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
@@ -66,11 +67,11 @@ private:
     virtual void flattened_image_callback(const vins::FlattenImagesConstPtr & flattened);
     virtual std::vector<TrackedDrone> images_callback(const ros::Time & stamp, 
         const std::vector<const cv::Mat *> & imgs, 
-        std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> poses_drones,
+        std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> poses_drones, 
+        cv::Mat & show,
         bool is_down_cam = false);
     
-    virtual std::vector<TrackedDrone> 
-        virtual_cam_callback(const cv::Mat & img, 
+    virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img, 
         int direction, 
         Swarm::Pose pose, 
         bool need_detect,
@@ -89,7 +90,9 @@ private:
 
     virtual std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> 
         stereo_triangulate(std::vector<TrackedDrone> tracked_up, 
-        std::vector<TrackedDrone> tracked_down);
+        const std::vector<const cv::Mat *> & images_up, 
+        const std::vector<const cv::Mat *> & images_down, 
+        cv::Mat & _show_up, cv::Mat & _show_down);
 
     virtual std::vector<TrackedDrone> process_detect_result(const cv::Mat & _img, 
         int direction, 
@@ -117,7 +120,7 @@ private:
     bool enable_tracker;
     bool enable_triangulation;
     double detect_duration = 0.5;
-    double triangulation_thres = 0.006;
+    double triangulation_thres = 0.01;
     double drone_scale;
     
     bool enable_gamma_correction;

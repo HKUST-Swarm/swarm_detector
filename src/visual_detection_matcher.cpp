@@ -236,7 +236,7 @@ std::vector<TrackedDrone> VisualDetectionMatcher::match_targets(std::vector<Trac
             }
         }
 
-        //DEBUG Output
+#ifdef DEBUG_OUTPUT
         auto res_mat = munkresMatrixtoEigen(_cost);
         std::cout << "Cost \n" << cost << std::endl;
         std::cout << "Ret \n" << res_mat << std::endl;
@@ -245,7 +245,7 @@ std::vector<TrackedDrone> VisualDetectionMatcher::match_targets(std::vector<Trac
             std::cout << " " << matched[j];
         }
         std::cout << "]" << std::endl;
-
+#endif
         for (size_t i = 0; i < detected_targets.size(); i ++) {
             auto matched_to = matched[i];
             auto assigned_id = -1;
