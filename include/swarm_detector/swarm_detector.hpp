@@ -59,7 +59,7 @@ private:
 
         for (size_t i = 1; i < Rvcams.size(); i ++) {
             Rcams.emplace_back(Rcam*Rvcams[i]);
-            Rcams_down.emplace_back(Rcam_down * Rvcams[i]*t_down);
+            Rcams_down.emplace_back(Rcam_down * t_down* Rvcams[i]);
         }
     }
     virtual void image_callback(const sensor_msgs::Image::ConstPtr &img1_msg);
@@ -127,12 +127,14 @@ private:
     bool enable_up_cam;
     bool enable_down_cam;
     double gamma_;
+    std::string output_path;
     cv::Mat lookUpTable;
 
 
     double sf_latest = 0;
     int self_id;
     int publish_count = 0;
+    int img_count = 0;
 
     std::vector<Eigen::Matrix3d> Rcams, Rcams_down;
     Eigen::Quaterniond t_down;
