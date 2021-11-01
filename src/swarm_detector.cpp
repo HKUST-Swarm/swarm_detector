@@ -12,6 +12,7 @@
 #include <chrono>
 #include <vins/FlattenImages.h>
 #include <swarm_msgs/swarm_lcm_converter.hpp>
+#define MAX_DETECTOR_ID 1000000000
 
 #define VCAMERA_TOP 0
 #define VCAMERA_LEFT 1
@@ -417,7 +418,7 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
         nd.inv_dep = det.second;
-
+        nd.id = MAX_DETECTOR_ID*self_id + publish_count;
         publish_count ++;
         ROS_INFO("[SWARM_DETECT] Pub drone %d number %d dir: [%3.2f, %3.2f, %3.2f] dep %3.2f Cam Pose", tdrone._id, 
             publish_count,
