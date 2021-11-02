@@ -38,7 +38,7 @@
     <param name="detect_duration" type="double" value="$(arg detect_duration)" />
     <param name="width" type="int" value="$(arg width)" />
     <rosparam>
-      thres: 0.6
+      thres: 0.5
       overlap_thres: 0.1
       fov: 235
       show_width: 2160

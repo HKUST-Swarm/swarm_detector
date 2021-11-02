@@ -12,7 +12,7 @@
 #include <chrono>
 #include <vins/FlattenImages.h>
 #include <swarm_msgs/swarm_lcm_converter.hpp>
-#define MAX_DETECTOR_ID 1000000000
+#define MAX_DETECTOR_ID 1000000
 
 #define VCAMERA_TOP 0
 #define VCAMERA_LEFT 1
