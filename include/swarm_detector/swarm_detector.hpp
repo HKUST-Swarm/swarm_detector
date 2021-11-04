@@ -71,14 +71,14 @@ private:
         cv::Mat & show,
         bool is_down_cam = false);
     
-    virtual std::vector<TrackedDrone> virtual_cam_callback(const cv::Mat & img, 
+    virtual std::vector<TrackedDrone> virtual_cam_callback(const ros::Time & stamp, const cv::Mat & img, 
         int direction, 
         Swarm::Pose pose, 
         bool need_detect,
         bool is_down_cam,
         cv::Mat & debug_img);
     
-    virtual std::vector<TrackedDrone> virtual_cam_callback2(const cv::Mat & img1, 
+    virtual std::vector<TrackedDrone> virtual_cam_callback2(const ros::Time & stamp, const cv::Mat & img1, 
         const cv::Mat & img2, 
         int dir1, 
         int dir2, 
@@ -94,7 +94,7 @@ private:
         const std::vector<const cv::Mat *> & images_down, 
         cv::Mat & _show_up, cv::Mat & _show_down);
 
-    virtual std::vector<TrackedDrone> process_detect_result(const cv::Mat & _img, 
+    virtual std::vector<TrackedDrone> process_detect_result(const ros::Time & stamp,const cv::Mat & _img, 
         int direction, 
         std::vector<std::pair<cv::Rect2d, double>> detected_drones, 
         Swarm::Pose pose_drone, 
@@ -102,11 +102,13 @@ private:
         bool is_down_cam,
         cv::Mat & debug_img);
 
-    virtual void odometry_callback(const nav_msgs::Odometry & odom);
-    virtual void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
-    virtual void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
+    void odometry_callback(const nav_msgs::Odometry & odom);
+    void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
+    void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
+    void save_tracked_raw(const ros::Time & stamp, const cv::Mat & image, const TrackedDrone & tracked_drone, const Swarm::Pose & extrinsic);
     virtual std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> get_poses_drones(const ros::Time &  stamp);
     bool debug_show = false;
+    bool debug_save_tracked_raw = false;
     bool concat_for_tracking = false;
     bool enable_rear = false;
     bool use_tensorrt = false;
@@ -135,6 +137,7 @@ private:
     int self_id;
     int publish_count = 0;
     int img_count = 0;
+    int save_img_count = 0;
 
     std::vector<Eigen::Matrix3d> Rcams, Rcams_down;
     Eigen::Quaterniond t_down;

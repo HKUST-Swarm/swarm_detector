@@ -13,6 +13,8 @@
   <arg name="swarm_fused" default="/swarm_drones/swarm_drone_fused"/>
   <arg name="width" default="400" />
   <arg name="enable_rear" default="false" />
+  <arg name="pub_track_result" default="false" />
+  <arg name="debug_save_tracked_raw" default="false" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager --no-bond" output="$(arg output)"  />
 
@@ -37,16 +39,17 @@
     <param name="extrinsic_path" type="string" value="$(arg extrinsic_path)" />
     <param name="detect_duration" type="double" value="$(arg detect_duration)" />
     <param name="width" type="int" value="$(arg width)" />
+    <param name="debug_save_tracked_raw" type="bool" value="$(arg debug_save_tracked_raw)" />
+    <param name="pub_track_result" type="bool" value="$(arg pub_track_result)" />
     <rosparam>
       thres: 0.5
       overlap_thres: 0.1
       fov: 235
-      show_width: 2160
+      show_width: 1080
       p_track: 0.999
       min_p: 0.1
       drone_scale: 0.48
       acpt_overlap_thres: 20
-      pub_track_result: false
       pub_anonymous: false
       use_tensorrt: true
       tensorrt_fp16: true
