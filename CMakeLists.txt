@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   swarm_msgs
   vins
   camera_models
+  swarm_loop
 )
 
 SET(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
@@ -43,6 +44,18 @@ if(ENABLE_TENSORRT)
   include_directories(${TRT_YOLO_ROOT}/modules)
   include_directories(${TRT_YOLO_ROOT}/extra)
   link_directories(${TRT_YOLO_ROOT}/build)
+
+  set(Torch_DIR "$ENV{HOME}/source/libtorch/share/cmake/Torch")
+  find_package(Torch REQUIRED)
+
+  include_directories("$ENV{HOME}/source/yolo-tensorrt/modules/")
+  include_directories("$ENV{HOME}/source/TensorRT-7.1.3.4/include")
+
+  link_directories(${TENSORRT_ROOT}/lib)
+  link_directories("$ENV{HOME}/source/yolo-tensorrt/build/")
+  find_package(CUDA)
+  include_directories(${CUDA_INCLUDE_DIRS} ${TORCH_INCLUDE_DIRS})
+  add_definitions("-D USE_TENSORRT")
 endif()
 
 catkin_package(
@@ -64,12 +77,14 @@ add_library(${PROJECT_NAME}
   src/swarm_detector.cpp
   src/darknet_detector.cpp
   src/visual_detection_matcher.cpp
+  src/dronepose_network.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 
   ${OpenCV_LIBS}
   camera_models
   munkres
+  loop_cnn
 )
 
 if(ENABLE_DARKNET) 
@@ -85,6 +100,7 @@ endif()
 if (ENABLE_BACKWARD) 
 target_link_libraries(${PROJECT_NAME}
 dw
+${TORCH_LIBRARIES}
 )
 endif()
 

@@ -3,6 +3,7 @@
 #include "swarm_detector/darknet_detector.hpp"
 #include "swarm_detector/tensorrt_detector.hpp"
 #include "swarm_detector/drone_tracker.hpp"
+#include "swarm_detector/dronepose_network.hpp"
 #include <opencv2/core/eigen.hpp>
 #include <nav_msgs/Odometry.h>
 #include <swarm_msgs/swarm_detected.h>
@@ -12,6 +13,7 @@
 #include <chrono>
 #include <vins/FlattenImages.h>
 #include <swarm_msgs/swarm_lcm_converter.hpp>
+
 #define MAX_DETECTOR_ID 1000000
 
 #define VCAMERA_TOP 0
@@ -21,40 +23,10 @@
 #define VCAMERA_REAR 4
 
 #define BBOX_DEPTH_OFFSET 0.12
-#define DOWN_Z_OFFSET -0.08
-#define UP_Z_OFFSET 0.06
-// #define ASSUME_IDENTITY_CAMERA_ATT
-
-#define FIXED_CAM_UP_Z 0.12
-#define FIXED_CAM_DOWN_Z 0.0
 
 #define DEBUG_SHOW_HCONCAT
 
 #define DETECTION_MARGIN 5
-class TicToc
-{
-  public:
-    TicToc()
-    {
-        tic();
-    }
-
-    void tic()
-    {
-        start = std::chrono::system_clock::now();
-    }
-
-    double toc()
-    {
-        end = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end - start;
-        return elapsed_seconds.count() * 1000;
-    }
-
-  private:
-    std::chrono::time_point<std::chrono::system_clock> start, end;
-};
-
 
 using namespace swarm_msgs;
 #ifdef USE_BACKWARD
@@ -80,6 +52,7 @@ void SwarmDetector::onInit()
     std::string camera_config_file;
     std::string camera_down_config_file;
     std::string extrinsic_path;
+    std::string drone_pose_network_model;
     bool track_matched_only = false;
     bool tensorrt_fp16 = false;
     double fov = 235;
@@ -87,6 +60,9 @@ void SwarmDetector::onInit()
     double p_track;
     double min_p;
     double acpt_overlap_thres;
+    int drone_pose_width;
+    int drone_pose_height;
+    int drone_pose_zoom;
 
     nh.param<bool>("show", debug_show, false);
     nh.param<bool>("track_matched_only", track_matched_only, false);
@@ -119,6 +95,10 @@ void SwarmDetector::onInit()
     nh.param<bool>("enable_up_cam", enable_up_cam, false);
     nh.param<bool>("enable_down_cam", enable_down_cam, true);
     nh.param<std::string>("output_path", output_path, "/root/output/");
+    nh.param<std::string>("drone_pose_network_model", drone_pose_network_model, "");
+    nh.param<int>("drone_pose_width", drone_pose_width, 128);
+    nh.param<int>("drone_pose_height", drone_pose_height, 128);
+    nh.param<int>("drone_pose_zoom", drone_pose_zoom, 4);
 
     //Is in %
     nh.param<double>("acpt_overlap_thres", acpt_overlap_thres, 20);
@@ -172,6 +152,8 @@ void SwarmDetector::onInit()
     } else {
         detector = new DarknetDetector(darknet_weights_path, darknet_cfg, thres, overlap_thres);
     }
+
+    dronepose_network = new Swarm::DronePoseNetwork(drone_pose_network_model, drone_pose_width, drone_pose_height, drone_pose_zoom, true);
 
     fisheye = new FisheyeUndist(camera_config_file, fov, true, width);
     fisheye_down = new FisheyeUndist(camera_down_config_file, fov, true, width);
@@ -258,8 +240,6 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(const ros::Time & 
     std::vector<std::pair<cv::Rect2d, double>> detected_targets;
     if (need_detect) {
         TicToc t_d;
-
-        cv::Rect roi(0, 0, _img.cols, _img.rows);
         detected_targets = detector->detect(_img);
         ROS_INFO("[SWARM_DETECT] Detect squared cost %fms \n", t_d.toc());
     }
@@ -327,6 +307,15 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const ros::Time &
             continue;
         }
 
+        // Act DronePose Here
+        //Make
+        cv::Rect2d rect;
+        rect.x = det.first.x - det.first.width /10;
+        rect.y = det.first.y - det.first.height/4;
+        rect.width = det.first.width*1.2;
+        rect.height = det.first.height*1.5;
+        auto landmarks_with_conf = dronepose_network->inference(_img(rect));
+
         auto _target = TrackedDrone(-1, det.first, ((double)det.first.width)/(drone_scale*focal_length), 
             det.second, direction);
         detected_targets_drones.emplace_back(_target);
@@ -334,6 +323,18 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const ros::Time &
             save_tracked_raw(stamp, _img, _target, Swarm::Pose(Rcams[direction], Pcam));
         }
         has_detected_or_tracked = true;
+
+
+        if (debug_show || pub_image)
+        {
+            cv::Mat crop;
+            _img(rect).copyTo(crop);
+            for (auto pt: landmarks_with_conf.first) {
+                cv::circle(crop, pt, 1, cv::Scalar(0, 0, 255), -1);
+            }
+            cv::resize(crop, crop, cv::Size(), 4, 4);
+            cv::imshow("Landmark", crop);
+        }
     }
 
 
@@ -906,11 +907,13 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
     } else 
     {
         //Detect on 512x288
-        for (int i = 0; i < total_imgs; i++) {
-            // ROS_INFO("V cam %d", i);
-            auto ret = virtual_cam_callback(stamp, *imgs[i%total_imgs], i, pose_drone, 
-                need_detect, is_down_cam, debug_imgs[i%total_imgs]);
-            detected_targets.insert(detected_targets.end(), ret.begin(), ret.end());
+        for (int i = 1; i < total_imgs; i++) {
+            if (!(*imgs[i]).empty()) {
+                ROS_INFO("V cam %d", i);
+                auto ret = virtual_cam_callback(stamp, *imgs[i%total_imgs], i, pose_drone, 
+                    need_detect, is_down_cam, debug_imgs[i%total_imgs]);
+                detected_targets.insert(detected_targets.end(), ret.begin(), ret.end());
+            }
         }
     }
 

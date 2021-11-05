@@ -57,6 +57,7 @@
   <build_depend>swarm_msgs</build_depend>
   <build_depend>camera_model</build_depend>
   <build_depend>vins</build_depend>
+  <build_depend>swarm_loop</build_depend>
 
   <build_export_depend>cv_bridge</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
@@ -65,6 +66,7 @@
   <build_export_depend>std_msgs</build_export_depend>
   <build_export_depend>vins</build_export_depend>
   <build_export_depend>camera_model</build_export_depend>
+  <build_export_depend>swarm_loop</build_export_depend>
 
   <build_export_depend>swarm_msgs</build_export_depend>
   <exec_depend>cv_bridge</exec_depend>
@@ -75,6 +77,7 @@
   <exec_depend>vins</exec_depend>
   <exec_depend>swarm_msgs</exec_depend>
   <exec_depend>camera_model</exec_depend>
+  <exec_depend>swarm_loop</exec_depend>
 
   <build_depend>nodelet</build_depend>
   <exec_depend>nodelet</exec_depend>

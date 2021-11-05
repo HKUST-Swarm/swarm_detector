@@ -19,6 +19,10 @@ class BaseDetector;
 class DroneTracker;
 struct TrackedDrone;
 
+namespace Swarm {
+    class DronePoseNetwork;
+}
+
 typedef std::tuple<ros::Time, Eigen::Quaterniond, Eigen::Vector3d> EigenPoseStamped;
 
 namespace swarm_detector_pkg
@@ -36,6 +40,7 @@ private:
     FisheyeUndist *fisheye = nullptr;
     FisheyeUndist *fisheye_down = nullptr;
     BaseDetector *detector = nullptr;
+    Swarm::DronePoseNetwork* dronepose_network = nullptr;
     virtual void onInit();
     ros::Subscriber fisheye_img_sub;
     ros::Subscriber fisheye_img_comp_sub;
