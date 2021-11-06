@@ -94,6 +94,7 @@ void SwarmDetector::onInit()
     nh.param<bool>("enable_gamma_correction", enable_gamma_correction, true);
     nh.param<bool>("enable_up_cam", enable_up_cam, false);
     nh.param<bool>("enable_down_cam", enable_down_cam, true);
+    nh.param<bool>("down_as_main", down_as_main, true);
     nh.param<std::string>("output_path", output_path, "/root/output/");
     nh.param<std::string>("drone_pose_network_model", drone_pose_network_model, "");
     nh.param<int>("drone_pose_width", drone_pose_width, 128);
@@ -349,7 +350,11 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const ros::Time &
         
         if (debug_save_tracked_raw) {
             for (auto & target: tracked_drones) {
-                save_tracked_raw(stamp, _img, target, Swarm::Pose(Rcams[direction], Pcam));
+                if (is_down_cam) {
+                    save_tracked_raw(stamp, _img, target, Swarm::Pose(Rcams_down[direction], Pcam_down));
+                } else {
+                    save_tracked_raw(stamp, _img, target, Swarm::Pose(Rcams[direction], Pcam));
+                }
                 has_detected_or_tracked = true;
             }
         }
@@ -358,7 +363,11 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const ros::Time &
     if (!has_detected_or_tracked) {
         if (!(direction == 4 && !enable_rear)) {
             auto _target = TrackedDrone(-1, cv::Rect2d(-1, -1, 0, 0), -1, -1, direction);
-            save_tracked_raw(stamp, _img, _target, Swarm::Pose(Rcams[direction], Pcam));
+            if (is_down_cam) {
+                save_tracked_raw(stamp, _img, _target, Swarm::Pose(Rcams_down[direction], Pcam_down));
+            } else {
+                save_tracked_raw(stamp, _img, _target, Swarm::Pose(Rcams[direction], Pcam));
+            }
         }
     }
 
@@ -613,14 +622,14 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
     auto ret = get_poses_drones(flattened->header.stamp);
     std::vector<TrackedDrone> tracked_drones_up, tracked_drones_down;
     cv::Mat show_up, show_down;
-    if (enable_up_cam) {
+    if (enable_up_cam && !down_as_main) {
         tracked_drones_up = images_callback(flattened->header.stamp, img_cpus, ret, show_up);
     }
 
     // //Not detect on down but do feature track.
-    // if (enable_down_cam) {
-    //     tracked_drones_down = images_callback(flattened->header.stamp, img_cpus_down, ret, show_down, true);
-    // }
+    if (enable_down_cam && down_as_main) {
+        tracked_drones_down = images_callback(flattened->header.stamp, img_cpus_down, ret, show_down, true);
+    }
 
     auto pose_drone = ret.first;
     

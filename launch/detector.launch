@@ -15,7 +15,8 @@
   <arg name="enable_rear" default="false" />
   <arg name="pub_track_result" default="false" />
   <arg name="debug_save_tracked_raw" default="false" />
-  <arg name="drone_pose_network_model" default="/root/swarm_ws/src/swarm_detector/config/drone_pose_v1_128x128_rtx3080_fp16.trt" />
+  <arg name="down_as_main" default="false" />
+  <arg name="drone_pose_network_model" default="/root/swarm_ws/src/swarm_detector/config/drone_pose_v2_128x128_rtx3080_fp16.trt" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager --no-bond" output="$(arg output)"  />
 
@@ -36,6 +37,7 @@
     <param name="show" type="bool" value="$(arg show)" />
     <param name="pub_image" type="bool" value="$(arg pub_image)" />
     <param name="enable_rear" type="bool" value="$(arg enable_rear)" />
+    <param name="down_as_main" type="bool" value="$(arg down_as_main)" />
     <param name="drone_id" type="int" value="$(arg drone_id)" />
     <param name="extrinsic_path" type="string" value="$(arg extrinsic_path)" />
     <param name="detect_duration" type="double" value="$(arg detect_duration)" />

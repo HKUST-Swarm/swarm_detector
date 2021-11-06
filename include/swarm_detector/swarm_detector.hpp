@@ -133,6 +133,7 @@ private:
     bool enable_gamma_correction;
     bool enable_up_cam;
     bool enable_down_cam;
+    bool down_as_main;
     double gamma_;
     std::string output_path;
     cv::Mat lookUpTable;
