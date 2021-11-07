@@ -37,7 +37,7 @@ public:
         const std::vector<float> & confs1,
         const Swarm::Pose & camera1);
 
-    Swarm::Pose solve(const Swarm::Pose & initial, bool est_extrinsic=false); //Return the pose of landmarks coordinates relative to camera
+    std::pair<Swarm::Pose, Matrix6d> solve(const Swarm::Pose & initial, bool est_extrinsic=false); //Return the pose of landmarks coordinates relative to camera
     std::vector<double*> landmarks;
 };
 }

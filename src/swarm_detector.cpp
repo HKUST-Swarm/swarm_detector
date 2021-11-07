@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <swarm_detector/stereo_bundle_adjustment.hpp>
 
-#define MAX_DETECTOR_ID 1000000
+#define MAX_DETECTOR_ID 100000
 
 #define VCAMERA_TOP 0
 #define VCAMERA_LEFT 1
@@ -211,7 +211,7 @@ void SwarmDetector::onInit()
         p[i] = cv::saturate_cast<uchar>(pow(i / 255.0, gamma_) * 255.0);
 
     swarm_detected_pub = nh.advertise<swarm_msgs::swarm_detected>("/swarm_detection/swarm_detected_raw", 3);
-    node_detected_pub = nh.advertise<swarm_msgs::node_detected_xyzyaw>("/swarm_drones/node_detected", 3);
+    node_detected_pub = nh.advertise<swarm_msgs::node_detected>("/swarm_drones/node_detected_6d", 3);
     image_show_pub = nh.advertise<sensor_msgs::Image>("show", 1);
 
     // odom_sub = nh.subscribe("odometry", 3, &SwarmDetector::odometry_callback, this);
@@ -500,49 +500,34 @@ void SwarmDetector::odometry_callback(const nav_msgs::Odometry & odom) {
     // pose_buf.push(tup);
 }
 
-void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics) {
+void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones) {
     swarm_detected sd;
     sd.header.stamp = stamp;
     sd.self_drone_id = self_id;
     sd.is_6d_detect = false;
-    auto &detected_nodes = sd.detected_nodes_xyz_yaw;
+    auto &detected_nodes = sd.detected_nodes;
     for (int i = 0; i <drones.size(); i++) {
         auto tdrone = drones[i];
-        auto extrinsic = extrinsics[i];
         if (!pub_anonymous && tdrone._id >= MAX_DRONE_ID) {
             continue;
         }
-        node_detected_xyzyaw nd;
-        std::pair<Eigen::Vector3d, double> det;
-        det = tdrone.get_detection_drone_frame();
-        Eigen::Vector3d p_drone_body = det.first;
-        Quaterniond local_quat_no_yaw = Eigen::AngleAxisd(-local_pose_self.yaw(), Eigen::Vector3d::UnitZ())*local_pose_self.att();
-        Eigen::Vector3d p_drone_yaw_only = local_quat_no_yaw * p_drone_body;
-        p_drone_yaw_only.normalize();
-        nd.dpos.x = p_drone_yaw_only.x();
-        nd.dpos.y = p_drone_yaw_only.y();
-        nd.dpos.z = p_drone_yaw_only.z();
-        
-        Swarm::Pose extrinsic_no_att =Swarm::Pose(Vector3d(0, 0, 0), local_quat_no_yaw)*Swarm::Pose(extrinsic.pos(), Quaterniond::Identity());
-        extrinsic_no_att.att().setIdentity();
-        nd.camera_extrinsic = extrinsic_no_att.to_ros_pose();
+        node_detected nd;
         nd.local_pose_self = local_pose_self.to_ros_pose();
-
-
-        nd.enable_scale = true;
         nd.is_yaw_valid = false;
         nd.self_drone_id = self_id;
         nd.remote_drone_id = tdrone._id;
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
-        nd.inv_dep = det.second;
         nd.id = MAX_DETECTOR_ID*self_id + publish_count;
+        // std::cout << "covariance pose_drone\n" << tdrone.covariance << std::endl;
+        
+        memcpy(nd.relative_pose.covariance.data(), tdrone.covariance.data(), sizeof(double)*36);
+        auto pose_4d = Swarm::Pose::DeltaPose(local_pose_self, local_pose_self*tdrone.relative_pose, true);
+        nd.relative_pose.pose = pose_4d.to_ros_pose(); //TODO: set covariance here.
+        //Set cov here
         publish_count ++;
-        ROS_INFO("[SWARM_DETECT] Pub drone %d number %d dir: [%3.2f, %3.2f, %3.2f] dep %3.2f Cam Pose", tdrone._id, 
-            publish_count,
-            nd.dpos.x, nd.dpos.y, nd.dpos.z,
-            1/nd.inv_dep
-        );
+        ROS_INFO("[SWARM_DETECT] Pub drone %d number %d rel pose (4d) %s", tdrone._id, 
+                publish_count, pose_4d.tostr().c_str());
 
         node_detected_pub.publish(nd);
 
@@ -722,7 +707,7 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
     if (enable_up_cam && enable_down_cam && enable_triangulation) {
         visual_detection_matcher_down->set_swarm_state(pose_drone, ret.second);
         auto tracked_drones = stereo_triangulate(flattened->header.stamp, tracked_drones_up, img_cpus, img_cpus_down, show_up, show_down);
-        publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones.first, tracked_drones.second);
+        publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones);
     } else {
         std::vector<TrackedDrone> tracked_drones;
         std::vector<Swarm::Pose> extrinsics;
@@ -736,10 +721,14 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
             cv::Rect2d rect;
             auto succ = detect_drone_landmarks_pose(*img_cpus[tracked.direction], 
                     tracked, cam_pose_up, drone_pose, pts_unit, confs, inliers, rect, crop, false);
-            tracked_drones.push_back(tracked);
-            extrinsics.push_back(Swarm::Pose(Rcam, Pcam));
+            Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit, inliers, 
+                    confs, cam_pose_up);
+            auto drone_pose_stereo = stereo_ba.solve(drone_pose, false);
+            tracked.relative_pose = drone_pose_stereo.first; //In body frame
+            tracked.covariance = drone_pose_stereo.second;
+            tracked_drones.emplace_back(tracked);
         }
-        publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones, extrinsics);
+        publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones);
     }
 
     if (debug_show || pub_image) {
@@ -833,7 +822,7 @@ void SwarmDetector::save_tracked_raw(const ros::Time & stamp, const cv::Mat & im
     save_img_count ++;
 }
 
-std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::stereo_triangulate(const ros::Time & stamp, std::vector<TrackedDrone> tracked_up, 
+std::vector<TrackedDrone> SwarmDetector::stereo_triangulate(const ros::Time & stamp, std::vector<TrackedDrone> tracked_up, 
         const std::vector<const cv::Mat *> & images_up, const std::vector<const cv::Mat *> & images_down, 
         cv::Mat & _show_up, cv::Mat & _show_down) {
     std::vector<TrackedDrone> tracked_drones;
@@ -851,6 +840,7 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
     for (auto drone_up: tracked_up) {
         //First init a visual tracker and track to down image.
         auto dir = drone_up.direction;
+        
         Swarm::Pose drone_pose, drone_pose_down;
         Swarm::Pose cam_pose_up(Rcams[dir], Pcam);
         Swarm::Pose cam_pose_down(Rcams_down[dir], Pcam_down);
@@ -863,6 +853,15 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
 
         auto succ = detect_drone_landmarks_pose(*images_up[dir], drone_up, cam_pose_up, drone_pose, 
                 pts_unit_up, confs_up, inliers_up, rect_up, crop_up, false);
+        if (dir == 0 && succ) {
+            Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, inliers_up, 
+                    confs_up, cam_pose_up);
+            auto drone_pose_stereo = stereo_ba.solve(drone_pose, false);
+            drone_up.relative_pose = drone_pose_stereo.first; //In body frame
+            drone_up.covariance = drone_pose_stereo.second;
+            tracked_drones.emplace_back(drone_up);
+            continue;
+        }
         double t_du = tic_du.toc();
         if (succ) {
             auto ret = visual_detection_matcher_down->reproject_drone_to_vcam(dir, drone_pose, cam_pose_down);
@@ -876,18 +875,21 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
                 Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, pts_unit_down, inliers_up, inliers_down, 
                     confs_up, confs_down, cam_pose_up, cam_pose_down);
                 TicToc tic_ba;
-                Swarm::Pose drone_pose_stereo = stereo_ba.solve(drone_pose, true);
+                auto drone_pose_stereo = stereo_ba.solve(drone_pose, true);
                 ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms StereoBA %.2fms succ %d %d", t_du, t_dd, tic_ba.toc(), succ, succ_down);
+                drone_up.relative_pose = drone_pose_stereo.first; //In body frame
+                drone_up.covariance = drone_pose_stereo.second; //In body frame
+                tracked_drones.emplace_back(drone_up);
                 if (ret.first && (debug_show || pub_image)) {
                     cv::rectangle(debug_imgs[dir], ret.second, cv::Scalar(0, 0, 255), 2);
 
                     for (auto pt: drone_landmarks) {
                         Vector2d pt2d;
-                        auto pt3d = cam_pose_up.apply_inv_pose_to(drone_pose_stereo*pt);
+                        auto pt3d = cam_pose_up.apply_inv_pose_to(drone_pose_stereo.first*pt);
                         fisheye->cam_side->spaceToPlane(pt3d, pt2d);
                         cv::circle(crop_up, cv::Point2f(pt2d.x() - rect_up.x, pt2d.y() - rect_up.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
 
-                        pt3d = stereo_ba.cam_pose_2_est.apply_inv_pose_to(drone_pose_stereo*pt);
+                        pt3d = stereo_ba.cam_pose_2_est.apply_inv_pose_to(drone_pose_stereo.first*pt);
                         fisheye->cam_side->spaceToPlane(pt3d, pt2d);
                         cv::circle(crop_down, cv::Point2f(pt2d.x() - rect_down.x, pt2d.y() - rect_down.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
                     }
@@ -897,7 +899,7 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
                     cv::vconcat(crop_up, crop_down, crop_up);
                     char title[128] = {0};
 
-                    sprintf(title, "Stereo OK %s", drone_pose_stereo.tostr().c_str());
+                    sprintf(title, "Stereo OK %s", drone_pose_stereo.first.tostr().c_str());
                     cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
 
                     sprintf(title, "Drone%d tracking", drone_up._id);
@@ -925,8 +927,7 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
             cv::hconcat(_show_down, debug_imgs[4], _show_down);
         }
     }
-    //Only stereo detection is used
-    return std::make_pair(tracked_drones, extrinsics);
+    return tracked_drones;
 }
 
 

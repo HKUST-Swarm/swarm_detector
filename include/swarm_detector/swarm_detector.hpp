@@ -93,8 +93,8 @@ private:
         cv::Mat & debug_img1, 
         cv::Mat & debug_img2);
 
-    virtual std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> 
-        stereo_triangulate(const ros::Time & stamp, std::vector<TrackedDrone> tracked_up, 
+    virtual std::vector<TrackedDrone> stereo_triangulate(const ros::Time & stamp, 
+        std::vector<TrackedDrone> tracked_up, 
         const std::vector<const cv::Mat *> & images_up, 
         const std::vector<const cv::Mat *> & images_down, 
         cv::Mat & _show_up, cv::Mat & _show_down);
@@ -109,7 +109,7 @@ private:
 
     void odometry_callback(const nav_msgs::Odometry & odom);
     void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
-    void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
+    void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones);
     void save_tracked_raw(const ros::Time & stamp, const cv::Mat & image, const TrackedDrone & tracked_drone, const Swarm::Pose & extrinsic, bool is_down);
     virtual std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> get_poses_drones(const ros::Time &  stamp);
     bool detect_drone_landmarks_pose(const cv::Mat & img, TrackedDrone & tracked_drone, const Swarm::Pose & est_drone_pose, 

@@ -22,6 +22,7 @@ struct TrackedDrone {
     Eigen::Vector3d unit_p_cam;
     Eigen::Vector3d unit_p_drone;
     Swarm::Pose relative_pose;
+    Eigen::Matrix<double, 6, 6, RowMajor> covariance;
     double probaility = 1.0;
     double inv_dep = 0;
     Eigen::Vector2d center;

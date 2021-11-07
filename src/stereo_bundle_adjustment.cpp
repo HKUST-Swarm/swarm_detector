@@ -39,9 +39,9 @@ StereoBundleAdjustment::StereoBundleAdjustment(const std::vector<Eigen::Vector3d
 {}
 
 
-Swarm::Pose StereoBundleAdjustment::solve(const Swarm::Pose & initial, bool est_extrinsic) {
+std::pair<Swarm::Pose, Matrix6d> StereoBundleAdjustment::solve(const Swarm::Pose & initial, bool est_extrinsic) {
     Problem problem;
-    double pose_drone[7] = {0};
+    double pose_drone[7] = {0}; //x y z qx qy qz qw
     double cam_pose_2_inv[7] = {0};
     initial.to_vector(pose_drone);
     camera_pose_2.inverse().to_vector(cam_pose_2_inv);
@@ -98,7 +98,19 @@ Swarm::Pose StereoBundleAdjustment::solve(const Swarm::Pose & initial, bool est_
         cam_pose_2_est = camera_pose_2;
     }
 
-    return est_drone_pose;
+    ceres::Covariance::Options cov_options;
+    ceres::Covariance covariance(cov_options);
+    std::vector<std::pair<const double*, const double*> > covariance_blocks;
+    covariance_blocks.push_back(std::make_pair(pose_drone, pose_drone));
+    CHECK(covariance.Compute(covariance_blocks, &problem));
+
+    Eigen::Matrix<double, 7, 7, RowMajor> cov_pose_drone;
+    covariance.GetCovarianceBlock(pose_drone, pose_drone, cov_pose_drone.data());
+    // std::cout << "covariance pose_drone\n" << cov_pose_drone << std::endl;
+
+    Eigen::Matrix<double, 6, 6> cov6d = cov_pose_drone.block<6, 6>(0, 0);
+
+    return std::make_pair(est_drone_pose, cov6d);
 }
 
 }
