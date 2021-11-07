@@ -1,5 +1,7 @@
 #pragma once
 #include "swarm_msgs/Pose.h"
+#include <camodocal/camera_models/PinholeCamera.h>
+#include "opencv2/opencv.hpp"
 
 namespace Swarm {
 class StereoBundleAdjustment {
@@ -12,6 +14,7 @@ class StereoBundleAdjustment {
     Swarm::Pose camera_pose_2;
     std::vector<float> confs1;
     std::vector<float> confs2;
+    Swarm::Pose est_drone_pose;
 
 public:
 
@@ -25,6 +28,12 @@ public:
         const Swarm::Pose & camera1, 
         const Swarm::Pose & camera2);
         
+    StereoBundleAdjustment(const std::vector<Eigen::Vector3d> & landmarks3d, 
+        const std::vector<Eigen::Vector2d> & landmarks_unit_1, 
+        const std::vector<int> & landmarks2d_1_index,
+        const std::vector<float> & confs1,
+        const Swarm::Pose & camera1);
+
     Swarm::Pose solve(const Swarm::Pose & initial); //Return the pose of landmarks coordinates relative to camera
     std::vector<double*> landmarks;
 };

@@ -314,12 +314,11 @@ Swarm::Pose PnPRestoCamPose(cv::Mat rvec, cv::Mat tvec) {
     return Swarm::Pose(R_w_c_old, T_w_c_old);
 }
 
-bool SwarmDetector::detect_drone_landmarks_pose(const ros::Time & stamp, const cv::Mat & img, TrackedDrone & _target, 
-            const Swarm::Pose & cam_pose, Swarm::Pose & drone_pose, std::vector<Vector2d> & pts_unit, std::vector<float> & conf,
-            std::vector<int> & inliers, bool is_down_cam) {
+bool SwarmDetector::detect_drone_landmarks_pose(const cv::Mat & img, TrackedDrone & _target, 
+            const Swarm::Pose & cam_pose, Swarm::Pose & est_drone_pose, std::vector<Vector2d> & pts_unit, std::vector<float> & conf,
+            std::vector<int> & inliers, cv::Rect2d &rect, cv::Mat & crop, bool is_down_cam) {
     // Act DronePose Here
     //Make
-    cv::Rect2d rect;
     rect.x = std::max(_target.bbox.x - _target.bbox.width /10, 0.0);
     rect.y = std::max(_target.bbox.y - _target.bbox.height*0.7, 0.0);
     rect.width = std::min(_target.bbox.width*1.2, img.cols - rect.x);
@@ -359,20 +358,18 @@ bool SwarmDetector::detect_drone_landmarks_pose(const ros::Time & stamp, const c
                                                 0, 0, 1.0);
         cv::solvePnPRansac(drone_landmarks_cv, landmarks2d, K, D, r, t, false,  100,  5, 0.99,  inliers, cv::SOLVEPNP_EPNP);
         auto p_cam_in_target_frame = PnPRestoCamPose(r, t);
-        drone_pose = (p_cam_in_target_frame*(cam_pose.inverse())).inverse();
+        est_drone_pose = (p_cam_in_target_frame*(cam_pose.inverse())).inverse();
 
         if (debug_show || pub_image)
         {
-            cv::Mat crop;
             img(rect).copyTo(crop);
             cv::resize(crop, crop, cv::Size(), DISP_RESCALE, DISP_RESCALE);
-
             for (int i = 0; i < landmarks_with_conf.first.size(); i++) {
                 uint8_t conf = landmarks_with_conf.second[i]*255;
                 cv::Mat im_gray = (cv::Mat_<uint8_t>(1, 1) << conf);
                 cv::Mat im_color;
                 cv::applyColorMap(im_gray, im_color, cv::COLORMAP_JET);
-                cv::circle(crop, landmarks_with_conf.first[i]*DISP_RESCALE, 5, im_color.at<cv::Vec3b>(0, 0), -1);
+                cv::circle(crop, landmarks_with_conf.first[i]*DISP_RESCALE, 2, im_color.at<cv::Vec3b>(0, 0), -1);
             }
 
             for (auto index: inliers) {
@@ -381,17 +378,11 @@ bool SwarmDetector::detect_drone_landmarks_pose(const ros::Time & stamp, const c
 
             char title[128] = {0};
             if (inliers.size() >= pnpransac_inlier_min) {
-                sprintf(title, "POSE OK %s", drone_pose.tostr().c_str());
+                sprintf(title, "POSE OK %s", est_drone_pose.tostr().c_str());
                 cv::putText(crop, title, cv::Point2f(20, 30), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
             } else {
-                sprintf(title, "POSE Failed %s", drone_pose.tostr().c_str());
+                sprintf(title, "POSE Failed %s", est_drone_pose.tostr().c_str());
                 cv::putText(crop, title, cv::Point2f(20, 30), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
-            }
-
-            if (is_down_cam) {
-                cv::imshow("Landmark Down", crop);
-            } else {
-                cv::imshow("Landmark Up", crop);
             }
         }
     }
@@ -741,8 +732,10 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
             std::vector<Vector2d> pts_unit;
             std::vector<int> inliers;
             std::vector<float> confs;
-            auto succ = detect_drone_landmarks_pose(flattened->header.stamp, *img_cpus[tracked.direction], 
-                    tracked, cam_pose_up, drone_pose, pts_unit, confs, inliers, false);
+            cv::Mat crop;
+            cv::Rect2d rect;
+            auto succ = detect_drone_landmarks_pose(*img_cpus[tracked.direction], 
+                    tracked, cam_pose_up, drone_pose, pts_unit, confs, inliers, rect, crop, false);
             tracked_drones.push_back(tracked);
             extrinsics.push_back(Swarm::Pose(Rcam, Pcam));
         }
@@ -858,43 +851,60 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
     for (auto drone_up: tracked_up) {
         //First init a visual tracker and track to down image.
         auto dir = drone_up.direction;
-        Swarm::Pose drone_pose;
+        Swarm::Pose drone_pose, drone_pose_down;
         Swarm::Pose cam_pose_up(Rcams[dir], Pcam);
         Swarm::Pose cam_pose_down(Rcams_down[dir], Pcam_down);
         TicToc tic_du;
-        std::vector<Vector2d> pts_unit_up;
-        std::vector<int> inliers_up;
-        std::vector<float> confs_up;
-        auto succ = detect_drone_landmarks_pose(stamp, *images_up[dir], drone_up, cam_pose_up, drone_pose, 
-                pts_unit_up, confs_up, inliers_up, false);
+        std::vector<Vector2d> pts_unit_up, pts_unit_down;
+        std::vector<int> inliers_up, inliers_down;
+        std::vector<float> confs_up, confs_down;
+        cv::Mat crop_up, crop_down;
+        cv::Rect2d rect_up, rect_down;
+
+        auto succ = detect_drone_landmarks_pose(*images_up[dir], drone_up, cam_pose_up, drone_pose, 
+                pts_unit_up, confs_up, inliers_up, rect_up, crop_up, false);
         double t_du = tic_du.toc();
         if (succ) {
             auto ret = visual_detection_matcher_down->reproject_drone_to_vcam(dir, drone_pose, cam_pose_down);
-
-            // cv::Rect2d rect;
-            // rect.x = std::max(ret.second.x - ret.second.width*0.4, 0.0);
-            // rect.y = std::max(ret.second.y - ret.second.height*0.2, 0.0);
-            // rect.width = std::min(ret.second.width*1.8, images_down[dir]->cols - rect.x);
-            // rect.height = std::min(ret.second.height*1.4, images_down[dir]->rows - rect.y);
             auto drone_down = drone_up;
             drone_down.bbox = ret.second;
-            Swarm::Pose drone_pose_down;
             TicToc tic_dd;
-            std::vector<Vector2d> pts_unit_down;
-            std::vector<int> inliers_down;
-            std::vector<float> confs_down;
-            auto succ_down = detect_drone_landmarks_pose(stamp, *images_down[dir], drone_down, cam_pose_down, drone_pose_down, 
-                    pts_unit_down, confs_down, inliers_down, true);
-
+            auto succ_down = detect_drone_landmarks_pose(*images_down[dir], drone_down, cam_pose_down, drone_pose_down, 
+                    pts_unit_down, confs_down, inliers_down, rect_down, crop_down, true);
             double t_dd = tic_dd.toc();
+            if (succ_down) {
+                Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, pts_unit_down, inliers_up, inliers_down, 
+                    confs_up, confs_down, cam_pose_up, cam_pose_down);
+                TicToc tic_ba;
+                Swarm::Pose drone_pose_stereo = stereo_ba.solve(drone_pose);
+                ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms StereoBA %.2fms succ %d %d", t_du, t_dd, tic_ba.toc(), succ, succ_down);
+                if (ret.first && (debug_show || pub_image)) {
+                    cv::rectangle(debug_imgs[dir], ret.second, cv::Scalar(0, 0, 255), 2);
 
-            Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, pts_unit_down, inliers_up, inliers_down, 
-                confs_up, confs_down, cam_pose_up, cam_pose_down);
-            TicToc tic_ba;
-            Swarm::Pose drone_pose_stereo = stereo_ba.solve(drone_pose);
-            ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms StereoBA %.2fms succ %d %d", t_du, t_dd, tic_ba.toc(), succ, succ_down);
-            if (ret.first) {
-                cv::rectangle(debug_imgs[dir], ret.second, cv::Scalar(0, 0, 255), 2);
+                    for (auto pt: drone_landmarks) {
+                        Vector2d pt2d;
+                        auto pt3d = cam_pose_up.apply_inv_pose_to(drone_pose_stereo*pt);
+                        fisheye->cam_side->spaceToPlane(pt3d, pt2d);
+                        cv::circle(crop_up, cv::Point2f(pt2d.x() - rect_up.x, pt2d.y() - rect_up.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
+
+                        pt3d = cam_pose_down.apply_inv_pose_to(drone_pose_stereo*pt);
+                        fisheye->cam_side->spaceToPlane(pt3d, pt2d);
+                        cv::circle(crop_down, cv::Point2f(pt2d.x() - rect_down.x, pt2d.y() - rect_down.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
+                    }
+
+                    double rate = ((double)crop_up.cols)/crop_down.cols;
+                    cv::resize(crop_down, crop_down, cv::Size(crop_up.cols, crop_down.rows*rate));
+                    cv::vconcat(crop_up, crop_down, crop_up);
+                    char title[128] = {0};
+
+                    sprintf(title, "Stereo OK %s", drone_pose_stereo.tostr().c_str());
+                    cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+
+                    sprintf(title, "Drone%d tracking", drone_up._id);
+                    cv::imshow(title, crop_up);
+                }
+            } else {
+                ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms succ %d %d", t_du, t_dd, succ, succ_down);
             }
         } else {
             ROS_INFO("[SWARM_DETECT] LMup %.2fms %d", t_du, succ);

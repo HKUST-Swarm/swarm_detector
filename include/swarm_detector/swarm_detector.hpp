@@ -112,8 +112,9 @@ private:
     void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
     void save_tracked_raw(const ros::Time & stamp, const cv::Mat & image, const TrackedDrone & tracked_drone, const Swarm::Pose & extrinsic, bool is_down);
     virtual std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> get_poses_drones(const ros::Time &  stamp);
-    bool detect_drone_landmarks_pose(const ros::Time & stamp, const cv::Mat & img, TrackedDrone & tracked_drone, const Swarm::Pose & cam_pose, 
-        Swarm::Pose & drone_pose, std::vector<Vector2d> & pts_unit, std::vector<float> & confs, std::vector<int> & inliers, bool is_down_cam=false);
+    bool detect_drone_landmarks_pose(const cv::Mat & img, TrackedDrone & tracked_drone, const Swarm::Pose & est_drone_pose, 
+        Swarm::Pose & drone_pose, std::vector<Vector2d> & pts_unit, std::vector<float> & confs, std::vector<int> & inliers, 
+        cv::Rect2d &rect,cv::Mat & crop, bool is_down_cam=false);
     bool debug_show = false;
     bool debug_save_tracked_raw = false;
     bool concat_for_tracking = false;
