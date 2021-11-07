@@ -7,6 +7,7 @@
 #include <camodocal/camera_models/PinholeCamera.h>
 #include <algorithm>
 #include <ros/ros.h>
+#include <swarm_msgs/Pose.h>
 
 static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
@@ -20,6 +21,7 @@ struct TrackedDrone {
     cv::Rect2d bbox;
     Eigen::Vector3d unit_p_cam;
     Eigen::Vector3d unit_p_drone;
+    Swarm::Pose relative_pose;
     double probaility = 1.0;
     double inv_dep = 0;
     Eigen::Vector2d center;

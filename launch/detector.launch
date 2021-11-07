@@ -16,7 +16,7 @@
   <arg name="pub_track_result" default="false" />
   <arg name="debug_save_tracked_raw" default="false" />
   <arg name="down_as_main" default="false" />
-  <arg name="drone_pose_network_model" default="/root/swarm_ws/src/swarm_detector/config/drone_pose_v2_128x128_rtx3080_fp16.trt" />
+  <arg name="drone_pose_network_model" default="/root/swarm_ws/src/swarm_detector/config/drone_pose_v1.2_128x128_rtx3080_fp32.trt" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager --no-bond" output="$(arg output)"  />
 

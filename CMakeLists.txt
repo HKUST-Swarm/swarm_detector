@@ -78,6 +78,7 @@ add_library(${PROJECT_NAME}
   src/darknet_detector.cpp
   src/visual_detection_matcher.cpp
   src/dronepose_network.cpp
+  src/stereo_bundle_adjustment.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 

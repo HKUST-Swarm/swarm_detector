@@ -26,9 +26,10 @@ class VisualDetectionMatcher {
     std::vector<Vector3d> boundbox3d_corners;
 
     bool show = false;
-    Vector3d Gc_imu = Vector3d(-0.06, 0, 0.00);
 
 public:
+    Vector3d Gc_imu = Vector3d(-0.06, 0, 0.00);
+
     VisualDetectionMatcher(Eigen::Vector3d _tic, 
             std::vector<Eigen::Matrix3d> rcams,
             FisheyeUndist* _fisheye,
@@ -39,6 +40,7 @@ public:
 
     std::pair<bool, Eigen::Vector2d> reproject_point_to_vcam(int direction, Eigen::Vector3d corner, Swarm::Pose est, Swarm::Pose cur) const;
 
+    std::pair<bool, cv::Rect2d> reproject_drone_to_vcam(int direction, Swarm::Pose est, Swarm::Pose cur, const std::vector<Vector3d> & corners) const;
     std::pair<bool, cv::Rect2d> reproject_drone_to_vcam(int direction, Swarm::Pose est, Swarm::Pose cur) const;
 
     double cost_det_to_est(TrackedDrone det, Swarm::Pose est) const;

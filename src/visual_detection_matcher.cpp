@@ -22,8 +22,8 @@ VisualDetectionMatcher::VisualDetectionMatcher(Eigen::Vector3d _tic,
     double h_2 = 0.2;
     double w_g_2 = 0.15;
     double h_g_2 = 0.15;
-    double z_max = 0.1;
-    double z_min = -0.1;
+    double z_max = 0.115;
+    double z_min = -0.071;
     double z_mid = 0.05;
 
     boundbox3d_corners = std::vector<Vector3d>{
@@ -35,6 +35,7 @@ VisualDetectionMatcher::VisualDetectionMatcher(Eigen::Vector3d _tic,
         Vector3d(w_g_2, -h_g_2, z_min) + Gc_imu,
         Vector3d(-w_g_2, h_g_2, z_min) + Gc_imu,
         Vector3d(-w_g_2, -h_g_2, z_min) + Gc_imu,
+        Vector3d(0, 0, z_max) + Gc_imu,
     };
 } 
 
@@ -50,33 +51,33 @@ void VisualDetectionMatcher::set_swarm_state(const Swarm::Pose & _pose_drone, co
 }
 
 std::pair<bool, Eigen::Vector2d> VisualDetectionMatcher::reproject_point_to_vcam(int direction, Eigen::Vector3d corner, Swarm::Pose est, Swarm::Pose cur) const {
-        auto cam = fisheye->cam_side;
-        if (direction == 0) {
-            cam = fisheye->cam_top;
-        }
-        Eigen::Vector2d ret(0, 0);
-
-        auto corner3d_body = est * corner;
-        corner3d_body = cur.apply_inv_pose_to(corner3d_body);
-        if (corner3d_body.z() < 0) {
-            return std::make_pair(false, ret);
-        }
-
-        cam->spaceToPlane(corner3d_body, ret);
-        return std::make_pair(true, ret);
+    auto cam = fisheye->cam_side;
+    if (direction == 0) {
+        cam = fisheye->cam_top;
     }
+    Eigen::Vector2d ret(0, 0);
+
+    auto corner3d_body = est * corner;
+    corner3d_body = cur.apply_inv_pose_to(corner3d_body);
+    if (corner3d_body.z() < 0) {
+        return std::make_pair(false, ret);
+    }
+
+    cam->spaceToPlane(corner3d_body, ret);
+    return std::make_pair(true, ret);
+}
     
-std::pair<bool, cv::Rect2d> VisualDetectionMatcher::reproject_drone_to_vcam(int direction, Swarm::Pose est, Swarm::Pose cur) const {
+std::pair<bool, cv::Rect2d> VisualDetectionMatcher::reproject_drone_to_vcam(int direction, Swarm::Pose est, Swarm::Pose cur, const std::vector<Vector3d> & corners) const {
     cv::Rect2d reproject_bbox;
-    MatrixXd corners2d_body(2, boundbox3d_corners.size());
+    MatrixXd corners2d_body(2, corners.size());
     auto cam = fisheye->cam_side;
     if (direction == 0) {
         cam = fisheye->cam_top;
     }
 
     // std::cout << "direction" << direction << "Est Pose\t" << est.tostr() << "\tcam pose\t" << cur.tostr()  << std::endl;
-    for (size_t i = 0; i < boundbox3d_corners.size(); i ++) {
-        auto corner = boundbox3d_corners[i];
+    for (size_t i = 0; i < corners.size(); i ++) {
+        auto corner = corners[i];
         auto corner3d_body = est * corner;
         corner3d_body = cur.apply_inv_pose_to(corner3d_body);
         // std::cout << "corner3d\t" << (est * corner).transpose() << "body\t" << corner3d_body.transpose() << std::endl;
@@ -112,7 +113,10 @@ std::pair<bool, cv::Rect2d> VisualDetectionMatcher::reproject_drone_to_vcam(int 
     }
 
     return std::make_pair(true, reproject_bbox);
+}
 
+std::pair<bool, cv::Rect2d> VisualDetectionMatcher::reproject_drone_to_vcam(int direction, Swarm::Pose est, Swarm::Pose cur) const {
+    return reproject_drone_to_vcam(direction, est, cur, boundbox3d_corners);
 }
 
 double VisualDetectionMatcher::cost_det_to_est(TrackedDrone det, Swarm::Pose est) const {

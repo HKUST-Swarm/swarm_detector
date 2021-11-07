@@ -94,7 +94,7 @@ private:
         cv::Mat & debug_img2);
 
     virtual std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> 
-        stereo_triangulate(std::vector<TrackedDrone> tracked_up, 
+        stereo_triangulate(const ros::Time & stamp, std::vector<TrackedDrone> tracked_up, 
         const std::vector<const cv::Mat *> & images_up, 
         const std::vector<const cv::Mat *> & images_down, 
         cv::Mat & _show_up, cv::Mat & _show_down);
@@ -110,8 +110,10 @@ private:
     void odometry_callback(const nav_msgs::Odometry & odom);
     void swarm_fused_callback(const swarm_msgs::swarm_fused & sf);
     void publish_tracked_drones(ros::Time stamp, Swarm::Pose local_pose_self, std::vector<TrackedDrone> drones, std::vector<Swarm::Pose> extrinsics);
-    void save_tracked_raw(const ros::Time & stamp, const cv::Mat & image, const TrackedDrone & tracked_drone, const Swarm::Pose & extrinsic);
+    void save_tracked_raw(const ros::Time & stamp, const cv::Mat & image, const TrackedDrone & tracked_drone, const Swarm::Pose & extrinsic, bool is_down);
     virtual std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> get_poses_drones(const ros::Time &  stamp);
+    bool detect_drone_landmarks_pose(const ros::Time & stamp, const cv::Mat & img, TrackedDrone & tracked_drone, const Swarm::Pose & cam_pose, 
+        Swarm::Pose & drone_pose, std::vector<Vector2d> & pts_unit, std::vector<float> & confs, std::vector<int> & inliers, bool is_down_cam=false);
     bool debug_show = false;
     bool debug_save_tracked_raw = false;
     bool concat_for_tracking = false;
@@ -122,10 +124,13 @@ private:
     int side_height;
     int yolo_height;
     int show_width;
+    int min_det_width;
+    int min_det_height;
     bool pub_image = false;
     bool pub_track_result = false;
     bool enable_tracker;
     bool enable_triangulation;
+    bool collect_data_mode;
     double detect_duration = 0.5;
     double triangulation_thres = 0.01;
     double drone_scale;
@@ -144,8 +149,11 @@ private:
     int publish_count = 0;
     int img_count = 0;
     int save_img_count = 0;
+    int pnpransac_inlier_min = 6;
 
     std::vector<Eigen::Matrix3d> Rcams, Rcams_down;
+    std::vector<Vector3d> drone_landmarks;
+    std::vector<cv::Point3f> drone_landmarks_cv;
     Eigen::Quaterniond t_down;
 
     std::vector<DroneTracker *> drone_trackers;
