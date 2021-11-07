@@ -876,7 +876,7 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
                 Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, pts_unit_down, inliers_up, inliers_down, 
                     confs_up, confs_down, cam_pose_up, cam_pose_down);
                 TicToc tic_ba;
-                Swarm::Pose drone_pose_stereo = stereo_ba.solve(drone_pose);
+                Swarm::Pose drone_pose_stereo = stereo_ba.solve(drone_pose, true);
                 ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms StereoBA %.2fms succ %d %d", t_du, t_dd, tic_ba.toc(), succ, succ_down);
                 if (ret.first && (debug_show || pub_image)) {
                     cv::rectangle(debug_imgs[dir], ret.second, cv::Scalar(0, 0, 255), 2);
@@ -887,7 +887,7 @@ std::pair<std::vector<TrackedDrone>,std::vector<Swarm::Pose>> SwarmDetector::ste
                         fisheye->cam_side->spaceToPlane(pt3d, pt2d);
                         cv::circle(crop_up, cv::Point2f(pt2d.x() - rect_up.x, pt2d.y() - rect_up.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
 
-                        pt3d = cam_pose_down.apply_inv_pose_to(drone_pose_stereo*pt);
+                        pt3d = stereo_ba.cam_pose_2_est.apply_inv_pose_to(drone_pose_stereo*pt);
                         fisheye->cam_side->spaceToPlane(pt3d, pt2d);
                         cv::circle(crop_down, cv::Point2f(pt2d.x() - rect_down.x, pt2d.y() - rect_down.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
                     }

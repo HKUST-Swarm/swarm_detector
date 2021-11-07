@@ -14,9 +14,12 @@ class StereoBundleAdjustment {
     Swarm::Pose camera_pose_2;
     std::vector<float> confs1;
     std::vector<float> confs2;
-    Swarm::Pose est_drone_pose;
+    double focal_length = 300;
+    double pixel_error = 4;
 
 public:
+    Swarm::Pose est_drone_pose;
+    Swarm::Pose cam_pose_2_est;
 
     StereoBundleAdjustment(const std::vector<Eigen::Vector3d> & landmarks3d, 
         const std::vector<Eigen::Vector2d> & landmarks_unit_1, 
@@ -34,7 +37,7 @@ public:
         const std::vector<float> & confs1,
         const Swarm::Pose & camera1);
 
-    Swarm::Pose solve(const Swarm::Pose & initial); //Return the pose of landmarks coordinates relative to camera
+    Swarm::Pose solve(const Swarm::Pose & initial, bool est_extrinsic=false); //Return the pose of landmarks coordinates relative to camera
     std::vector<double*> landmarks;
 };
 }

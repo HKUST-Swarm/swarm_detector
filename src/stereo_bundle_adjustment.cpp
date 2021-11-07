@@ -39,26 +39,46 @@ StereoBundleAdjustment::StereoBundleAdjustment(const std::vector<Eigen::Vector3d
 {}
 
 
-Swarm::Pose StereoBundleAdjustment::solve(const Swarm::Pose & initial) {
+Swarm::Pose StereoBundleAdjustment::solve(const Swarm::Pose & initial, bool est_extrinsic) {
     Problem problem;
     double pose_drone[7] = {0};
+    double cam_pose_2_inv[7] = {0};
     initial.to_vector(pose_drone);
+    camera_pose_2.inverse().to_vector(cam_pose_2_inv);
+
     for (auto index: landmarks2d_1_index) {
         auto cf = ReprojectionError::Create(landmarks3d[index], landmarks_unit_1[index], 
-                camera_pose_1, confs1[index]);
+                camera_pose_1, confs1[index]*focal_length/pixel_error);
         problem.AddResidualBlock(cf, nullptr, pose_drone);
     }
     
-    for (auto index: landmarks2d_2_index) {
-        auto cf = ReprojectionError::Create(landmarks3d[index], landmarks_unit_2[index], 
-                camera_pose_2, confs2[index]);
-        problem.AddResidualBlock(cf, nullptr, pose_drone);
+    if (!est_extrinsic) {
+        for (auto index: landmarks2d_2_index) {
+            auto cf = ReprojectionError::Create(landmarks3d[index], landmarks_unit_2[index], 
+                    camera_pose_2, confs2[index]*focal_length/pixel_error);
+            problem.AddResidualBlock(cf, nullptr, pose_drone);
+        }
+    } else {
+        for (auto index: landmarks2d_2_index) {
+            auto cf = ReprojectionExtrinsicError::Create(landmarks3d[index], landmarks_unit_2[index], confs2[index]*focal_length/pixel_error);
+            problem.AddResidualBlock(cf, nullptr, pose_drone, cam_pose_2_inv);
+        }
+
+        Matrix6d sqrt_inf = Matrix6d::Identity();
+        sqrt_inf.block<3, 3>(0, 0) = sqrt_inf.block<3, 3>(0, 0)*(57.3/1.0); //Set cov = 1deg**2
+        sqrt_inf.block<3, 3>(3, 3) = sqrt_inf.block<3, 3>(3, 3)*(1/0.01); //Set cov = 1cm**2
+
+        auto cf = CameraExtrinsicError::Create(camera_pose_2, sqrt_inf);
+        problem.AddResidualBlock(cf, nullptr, cam_pose_2_inv);
     }
 
     ceres::LocalParameterization* pose_local_parameterization = new ceres::ProductParameterization (new ceres::IdentityParameterization(3), 
         new ceres::EigenQuaternionParameterization());
 
     problem.SetParameterization(pose_drone, pose_local_parameterization);
+    if (est_extrinsic) {
+        problem.SetParameterization(cam_pose_2_inv, pose_local_parameterization);
+    }
     ceres::Solver::Options options;
     options.max_num_iterations = 100;
     options.linear_solver_type = ceres::DENSE_QR;
@@ -69,7 +89,15 @@ Swarm::Pose StereoBundleAdjustment::solve(const Swarm::Pose & initial) {
 
     est_drone_pose = Swarm::Pose(pose_drone);
     // std::cout << summary.FullReport() << std::endl;
-    // std::cout << "Initial" << initial.tostr() << "Ret" << est_drone_pose.tostr() << std::endl;
+    std::cout << "Initial" << initial.tostr() << "Ret" << est_drone_pose.tostr() << std::endl;
+
+    if (est_extrinsic) {
+        cam_pose_2_est = Swarm::Pose(cam_pose_2_inv).inverse();
+        std::cout << "cam_pose_2_initial" << camera_pose_2.tostr() << "Ret" << cam_pose_2_est.tostr() << std::endl;
+    } else {
+        cam_pose_2_est = camera_pose_2;
+    }
+
     return est_drone_pose;
 }
 
