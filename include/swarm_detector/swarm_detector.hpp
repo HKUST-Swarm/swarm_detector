@@ -93,7 +93,7 @@ private:
         cv::Mat & debug_img1, 
         cv::Mat & debug_img2);
 
-    virtual std::vector<TrackedDrone> stereo_triangulate(const ros::Time & stamp, 
+    virtual std::vector<TrackedDrone> pose_estimation(const ros::Time & stamp, 
         std::vector<TrackedDrone> tracked_up, 
         const std::vector<const cv::Mat *> & images_up, 
         const std::vector<const cv::Mat *> & images_down, 

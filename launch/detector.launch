@@ -58,7 +58,7 @@
       use_tensorrt: true
       tensorrt_fp16: true
       enable_tracker: true
-      enable_triangulation: true
+      enable_triangulation: false
       enable_up_cam: true
       enable_down_cam: true
       triangulation_thres: 0.2

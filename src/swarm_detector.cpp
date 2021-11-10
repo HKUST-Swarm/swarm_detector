@@ -523,7 +523,11 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         
         memcpy(nd.relative_pose.covariance.data(), tdrone.covariance.data(), sizeof(double)*36);
         auto pose_4d = Swarm::Pose::DeltaPose(local_pose_self, local_pose_self*tdrone.relative_pose, true);
-        nd.relative_pose.pose = pose_4d.to_ros_pose(); //TODO: set covariance here.
+        nd.relative_pose.pose = pose_4d.to_ros_pose();
+        nd.dof_4 = true;
+        ROS_INFO("[SWARM_DETECT] RP_body %s RP_body_4d %s local_pose %s target_pose_local %s", tdrone.relative_pose.tostr().c_str(), pose_4d.tostr().c_str(), 
+            local_pose_self.tostr().c_str(), (local_pose_self*tdrone.relative_pose).tostr().c_str());
+
         //Set cov here
         publish_count ++;
         ROS_INFO("[SWARM_DETECT] Pub drone %d number %d rel pose (4d) %s", tdrone._id, 
@@ -703,33 +707,9 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
     }
 
     auto pose_drone = ret.first;
-    
-    if (enable_up_cam && enable_down_cam && enable_triangulation) {
-        visual_detection_matcher_down->set_swarm_state(pose_drone, ret.second);
-        auto tracked_drones = stereo_triangulate(flattened->header.stamp, tracked_drones_up, img_cpus, img_cpus_down, show_up, show_down);
-        publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones);
-    } else {
-        std::vector<TrackedDrone> tracked_drones;
-        std::vector<Swarm::Pose> extrinsics;
-        for (auto tracked: tracked_drones_up) {
-            Swarm::Pose drone_pose;
-            Swarm::Pose cam_pose_up(Rcams[tracked.direction], Pcam);
-            std::vector<Vector2d> pts_unit;
-            std::vector<int> inliers;
-            std::vector<float> confs;
-            cv::Mat crop;
-            cv::Rect2d rect;
-            auto succ = detect_drone_landmarks_pose(*img_cpus[tracked.direction], 
-                    tracked, cam_pose_up, drone_pose, pts_unit, confs, inliers, rect, crop, false);
-            Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit, inliers, 
-                    confs, cam_pose_up);
-            auto drone_pose_stereo = stereo_ba.solve(drone_pose, false);
-            tracked.relative_pose = drone_pose_stereo.first; //In body frame
-            tracked.covariance = drone_pose_stereo.second;
-            tracked_drones.emplace_back(tracked);
-        }
-        publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones);
-    }
+    visual_detection_matcher_down->set_swarm_state(pose_drone, ret.second);
+    auto tracked_drones = pose_estimation(flattened->header.stamp, tracked_drones_up, img_cpus, img_cpus_down, show_up, show_down);
+    publish_tracked_drones(flattened->header.stamp, pose_drone, tracked_drones);
 
     if (debug_show || pub_image) {
         cv::Mat show;
@@ -822,7 +802,7 @@ void SwarmDetector::save_tracked_raw(const ros::Time & stamp, const cv::Mat & im
     save_img_count ++;
 }
 
-std::vector<TrackedDrone> SwarmDetector::stereo_triangulate(const ros::Time & stamp, std::vector<TrackedDrone> tracked_up, 
+std::vector<TrackedDrone> SwarmDetector::pose_estimation(const ros::Time & stamp, std::vector<TrackedDrone> tracked_up, 
         const std::vector<const cv::Mat *> & images_up, const std::vector<const cv::Mat *> & images_down, 
         cv::Mat & _show_up, cv::Mat & _show_down) {
     std::vector<TrackedDrone> tracked_drones;
@@ -851,66 +831,84 @@ std::vector<TrackedDrone> SwarmDetector::stereo_triangulate(const ros::Time & st
         cv::Mat crop_up, crop_down;
         cv::Rect2d rect_up, rect_down;
 
+        Swarm::Pose est_drone_pose;
+
         auto succ = detect_drone_landmarks_pose(*images_up[dir], drone_up, cam_pose_up, drone_pose, 
                 pts_unit_up, confs_up, inliers_up, rect_up, crop_up, false);
-        if (dir == 0 && succ) {
-            Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, inliers_up, 
-                    confs_up, cam_pose_up);
-            auto drone_pose_stereo = stereo_ba.solve(drone_pose, false);
-            drone_up.relative_pose = drone_pose_stereo.first; //In body frame
-            drone_up.covariance = drone_pose_stereo.second;
-            tracked_drones.emplace_back(drone_up);
-            continue;
-        }
         double t_du = tic_du.toc();
         if (succ) {
-            auto ret = visual_detection_matcher_down->reproject_drone_to_vcam(dir, drone_pose, cam_pose_down);
-            auto drone_down = drone_up;
-            drone_down.bbox = ret.second;
-            TicToc tic_dd;
-            auto succ_down = detect_drone_landmarks_pose(*images_down[dir], drone_down, cam_pose_down, drone_pose_down, 
-                    pts_unit_down, confs_down, inliers_down, rect_down, crop_down, true);
-            double t_dd = tic_dd.toc();
-            if (succ_down) {
-                Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, pts_unit_down, inliers_up, inliers_down, 
-                    confs_up, confs_down, cam_pose_up, cam_pose_down);
-                TicToc tic_ba;
-                auto drone_pose_stereo = stereo_ba.solve(drone_pose, true);
-                ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms StereoBA %.2fms succ %d %d", t_du, t_dd, tic_ba.toc(), succ, succ_down);
-                drone_up.relative_pose = drone_pose_stereo.first; //In body frame
-                drone_up.covariance = drone_pose_stereo.second; //In body frame
-                tracked_drones.emplace_back(drone_up);
-                if (ret.first && (debug_show || pub_image)) {
-                    cv::rectangle(debug_imgs[dir], ret.second, cv::Scalar(0, 0, 255), 2);
-
-                    for (auto pt: drone_landmarks) {
-                        Vector2d pt2d;
-                        auto pt3d = cam_pose_up.apply_inv_pose_to(drone_pose_stereo.first*pt);
-                        fisheye->cam_side->spaceToPlane(pt3d, pt2d);
-                        cv::circle(crop_up, cv::Point2f(pt2d.x() - rect_up.x, pt2d.y() - rect_up.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
-
-                        pt3d = stereo_ba.cam_pose_2_est.apply_inv_pose_to(drone_pose_stereo.first*pt);
-                        fisheye->cam_side->spaceToPlane(pt3d, pt2d);
-                        cv::circle(crop_down, cv::Point2f(pt2d.x() - rect_down.x, pt2d.y() - rect_down.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
+            if (enable_triangulation && dir != 0) {
+                if (succ) {
+                    auto ret = visual_detection_matcher_down->reproject_drone_to_vcam(dir, drone_pose, cam_pose_down);
+                    auto drone_down = drone_up;
+                    drone_down.bbox = ret.second;
+                    TicToc tic_dd;
+                    auto succ_down = detect_drone_landmarks_pose(*images_down[dir], drone_down, cam_pose_down, drone_pose_down, 
+                            pts_unit_down, confs_down, inliers_down, rect_down, crop_down, true);
+                    double t_dd = tic_dd.toc();
+                    if (succ_down) {
+                        Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, pts_unit_down, inliers_up, inliers_down, 
+                            confs_up, confs_down, cam_pose_up, cam_pose_down);
+                        TicToc tic_ba;
+                        auto drone_pose_stereo = stereo_ba.solve(drone_pose, true);
+                        ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms StereoBA %.2fms succ %d %d", t_du, t_dd, tic_ba.toc(), succ, succ_down);
+                        drone_up.relative_pose = drone_pose_stereo.first; //In body frame
+                        drone_up.covariance = drone_pose_stereo.second; //In body frame
+                        est_drone_pose = drone_pose_stereo.first;
+                        tracked_drones.emplace_back(drone_up);
+                        cam_pose_down = stereo_ba.cam_pose_2_est;
+                        
+                    } else {
+                        ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms succ %d %d", t_du, t_dd, succ, succ_down);
                     }
 
-                    double rate = ((double)crop_up.cols)/crop_down.cols;
-                    cv::resize(crop_down, crop_down, cv::Size(crop_up.cols, crop_down.rows*rate));
-                    cv::vconcat(crop_up, crop_down, crop_up);
-                    char title[128] = {0};
+                    if (debug_show || pub_image) {
+                        cv::rectangle(debug_imgs[dir], ret.second, cv::Scalar(0, 0, 255), 2);
+                    }
 
-                    sprintf(title, "Stereo OK %s", drone_pose_stereo.first.tostr().c_str());
-                    cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
-
-                    sprintf(title, "Drone%d tracking", drone_up._id);
-                    cv::imshow(title, crop_up);
+                } else {
+                    ROS_INFO("[SWARM_DETECT] LMup %.2fms %d", t_du, succ);
                 }
             } else {
-                ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms succ %d %d", t_du, t_dd, succ, succ_down);
+                TicToc tic_ba;
+                Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, inliers_up, confs_up, cam_pose_up);
+
+                auto drone_pose_stereo = stereo_ba.solve(drone_pose, false);
+                ROS_INFO("[SWARM_DETECT] LMup %.2fms StereoBA %.2fms succ %d", t_du, tic_ba.toc(), succ);
+                drone_up.relative_pose = drone_pose_stereo.first; //In body frame
+                drone_up.covariance = drone_pose_stereo.second; //In body frame
+                tracked_drones.emplace_back(drone_up);  
             }
-        } else {
-            ROS_INFO("[SWARM_DETECT] LMup %.2fms %d", t_du, succ);
         }
+
+        if (debug_show || pub_image) {
+
+            for (auto pt: drone_landmarks) {
+                Vector2d pt2d;
+                auto pt3d = cam_pose_up.apply_inv_pose_to(est_drone_pose*pt);
+                fisheye->cam_side->spaceToPlane(pt3d, pt2d);
+                cv::circle(crop_up, cv::Point2f(pt2d.x() - rect_up.x, pt2d.y() - rect_up.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
+                if (enable_triangulation) {
+                    pt3d = cam_pose_down.apply_inv_pose_to(est_drone_pose*pt);
+                    fisheye->cam_side->spaceToPlane(pt3d, pt2d);
+                    cv::circle(crop_down, cv::Point2f(pt2d.x() - rect_down.x, pt2d.y() - rect_down.y)*DISP_RESCALE, 5, cv::Scalar(255, 255, 0), 2);
+                }
+            }
+            
+            char title[128] = {0};
+
+            if (enable_triangulation) {
+                double rate = ((double)crop_up.cols)/crop_down.cols;
+                cv::resize(crop_down, crop_down, cv::Size(crop_up.cols, crop_down.rows*rate));
+                cv::vconcat(crop_up, crop_down, crop_up);
+
+                sprintf(title, "Stereo OK %s", est_drone_pose.tostr().c_str());
+                cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+            }
+
+            sprintf(title, "Drone%d tracking", drone_up._id);
+            cv::imshow(title, crop_up);
+        }   
         
     }
 

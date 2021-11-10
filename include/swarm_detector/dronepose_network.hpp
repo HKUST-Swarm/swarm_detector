@@ -15,7 +15,7 @@ public:
     int feature_num = 11;
     bool enable_perf;
     int max_num = 200;
-    int output_zoom = 4;
+    int output_zoom = 1;
     DronePoseNetwork(std::string engine_path, int _width, int _height, int zoom, bool _enable_perf = false);
 
     std::pair<std::vector<cv::Point2f>, std::vector<float>> inference(const cv::Mat & input);
