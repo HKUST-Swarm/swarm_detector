@@ -3,6 +3,8 @@
 #include "swarm_detector/fisheye_undist.hpp"
 #include "swarm_msgs/swarm_types.hpp"
 
+#define MAX_DRONE_ID 100
+
 // #define DEBUG_OUTPUT
 namespace swarm_detector_pkg {
 class VisualDetectionMatcher {
@@ -27,6 +29,9 @@ class VisualDetectionMatcher {
 
     bool show = false;
 
+    bool enable_anonymous;
+    int self_id = 0;
+
 public:
     Vector3d Gc_imu = Vector3d(-0.06, 0, 0.00);
 
@@ -34,6 +39,8 @@ public:
             std::vector<Eigen::Matrix3d> rcams,
             FisheyeUndist* _fisheye,
             double _accept_overlap_thres,
+            int _self_id,
+            bool _enable_anonymous,
             bool debug_show);
 
     void set_swarm_state(const Swarm::Pose & _pose_drone, const std::map<int, Swarm::Pose> & _swarm_positions);

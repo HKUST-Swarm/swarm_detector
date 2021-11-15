@@ -3,15 +3,22 @@
 
 #define MAX_COST 1000
 
+
 namespace swarm_detector_pkg {
+int anonymous_count = 0;
+
 VisualDetectionMatcher::VisualDetectionMatcher(Eigen::Vector3d _tic, 
         std::vector<Eigen::Matrix3d> rcams,
         FisheyeUndist* _fisheye,
         double _accept_overlap_thres,
+        int _self_id,
+        bool _enable_anonymous,
         bool debug_show):
     tic(_tic),
     fisheye(_fisheye),
     accept_overlap_thres(_accept_overlap_thres),
+    self_id(_self_id),
+    enable_anonymous(_enable_anonymous),
     show(debug_show)
 {
     for (auto R : rcams) {
@@ -265,12 +272,30 @@ std::vector<TrackedDrone> VisualDetectionMatcher::match_targets(std::vector<Trac
                 matched_targets.emplace_back(target);
                 printf("%ld->drone%d (matched_to: %d)", i, assigned_id, matched_to);
             } else {
-                printf("%ld->drone%d (matched_to: %d) failed: cost %.1f", i, assigned_id, matched_to, cost(matched_to, i));
+                if (enable_anonymous) {
+                    auto target = detected_targets[i];
+                    target._id = MAX_DRONE_ID + (anonymous_count ++);
+                    matched_targets.emplace_back(target);
+                    printf("%ld->drone%d (matched_to: %d) anonymous: cost %.1f\n", i, target._id, matched_to, cost(matched_to, i));
+                } else {
+                    printf("%ld->drone%d (matched_to: %d) failed: cost %.1f\n", i, assigned_id, matched_to, cost(matched_to, i));
+                }
             }
         }
         std::cout << std::endl;
         return matched_targets;
-    } 
+    } else {
+        for (size_t i = 0; i < detected_targets.size(); i ++) {
+            if (enable_anonymous) {
+                auto target = detected_targets[i];
+                assert(self_id > 0 && "self_id must bigger than 1");
+                target._id = MAX_DRONE_ID*self_id + (anonymous_count ++); //Self_id must start with 1!!!
+                matched_targets.emplace_back(target);
+                printf("%ld->anonymous%d.\n", i, target._id);
+            }
+        }
+        return matched_targets;
+    }
     
     return std::vector<TrackedDrone>();
 }

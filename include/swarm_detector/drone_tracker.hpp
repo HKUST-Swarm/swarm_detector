@@ -12,7 +12,6 @@
 static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
 #define INV_DEP_COEFF 0.5
-#define MAX_DRONE_ID 100
 
 struct TrackedDrone {
     int _id;

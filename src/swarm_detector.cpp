@@ -186,8 +186,8 @@ void SwarmDetector::onInit()
         drone_trackers_down.emplace_back(new DroneTracker(i, p_track, min_p, drone_scale, focal_length));
     }
 
-    visual_detection_matcher_up = new VisualDetectionMatcher(Pcam, Rcams, fisheye, acpt_overlap_thres, debug_show);
-    visual_detection_matcher_down = new VisualDetectionMatcher(Pcam_down, Rcams_down, fisheye, acpt_overlap_thres, debug_show);
+    visual_detection_matcher_up = new VisualDetectionMatcher(Pcam, Rcams, fisheye, acpt_overlap_thres, self_id, pub_anonymous, debug_show);
+    visual_detection_matcher_down = new VisualDetectionMatcher(Pcam_down, Rcams_down, fisheye, acpt_overlap_thres, self_id, pub_anonymous, debug_show);
     auto Gc_imu = visual_detection_matcher_up->Gc_imu;
     drone_landmarks = std::vector<Vector3d>{
         Vector3d(102.15,121.79,52.2)/1000.0 + Gc_imu,
@@ -513,7 +513,7 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         }
         node_detected nd;
         nd.local_pose_self = local_pose_self.to_ros_pose();
-        nd.is_yaw_valid = false;
+        nd.is_yaw_valid = true;
         nd.self_drone_id = self_id;
         nd.remote_drone_id = tdrone._id;
         nd.header.stamp = stamp;
@@ -906,8 +906,10 @@ std::vector<TrackedDrone> SwarmDetector::pose_estimation(const ros::Time & stamp
                 cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
             }
 
-            sprintf(title, "Drone%d tracking", drone_up._id);
-            cv::imshow(title, crop_up);
+            if (!crop_up.empty()) {
+                sprintf(title, "Drone%d tracking", drone_up._id);
+                cv::imshow(title, crop_up);
+            }
         }   
         
     }
@@ -1022,6 +1024,9 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
     if(pub_track_result || enable_tracker) {
         for (auto & target: detected_drones) {
             int dir = target.direction;
+            if (target._id >= MAX_DRONE_ID && !pub_anonymous) {
+                continue; //Skip anonyumous
+            }
             if (!is_down_cam) {
                 drone_trackers[dir]->start_tracker_tracking(target, *imgs[dir]);
             } else {
