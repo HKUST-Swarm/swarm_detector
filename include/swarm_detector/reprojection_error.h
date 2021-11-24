@@ -38,10 +38,10 @@ struct ReprojectionError
         return true;
     }
 
-    static ceres::CostFunction *Create(const Eigen::Vector3d &_landmark_drone, const Eigen::Vector2d &observed_unit, const Swarm::Pose &_camera_pose, double conf)
+    static ceres::CostFunction *Create(const Eigen::Vector3d &_landmark_drone, const Eigen::Vector2d &observed_undist, const Swarm::Pose &_camera_pose, double conf)
     {
-        double observed_x = observed_unit.x();
-        double observed_y = observed_unit.y();
+        double observed_x = observed_undist.x();
+        double observed_y = observed_undist.y();
 
         return (new ceres::AutoDiffCostFunction<ReprojectionError, 2, 7>(
             new ReprojectionError(_landmark_drone, observed_x, observed_y, _camera_pose, conf)));
@@ -49,6 +49,56 @@ struct ReprojectionError
 
     double observed_x;
     double observed_y;
+    double conf;
+    Quaterniond quat_cam_inv;
+    Vector3d T_cam_inv;
+    Vector3d landmark_drone;
+};
+
+
+struct ReprojectionError_v2
+{
+    ReprojectionError_v2(const Eigen::Vector3d &_landmark_drone, Vector3d _observed_unit,
+        const Swarm::Pose &_camera_pose, double _conf) : landmark_drone(_landmark_drone), observed_unit(_observed_unit), conf(_conf)
+    {
+        Swarm::Pose _cam_pose_inv = _camera_pose.inverse();
+        quat_cam_inv = _cam_pose_inv.att();
+        T_cam_inv = _cam_pose_inv.pos();
+        // printf("Landmark %.1f %.1f %.1f observed %.3f %.3f, camera_pose_inv %s conf %.2f\n",
+        //             _landmark_drone.x(), _landmark_drone.y(), _landmark_drone.z(), _observed_x, _observed_y,
+        //             _camera_pose.inverse().tostr().c_str(),
+        //             _conf);
+    }
+
+    template <typename T>
+    bool operator()(const T *const drone_pose,
+                    const T *const depth,
+                    T *residuals) const
+    {
+        Eigen::Map<const Eigen::Matrix<T, 3, 1>> p_a(drone_pose);
+        Eigen::Map<const Eigen::Quaternion<T>> q_a(drone_pose + 3);
+        Eigen::Matrix<T, 3, 1> landmark_body = q_a*landmark_drone.template cast<T>() + p_a;
+        Eigen::Matrix<T, 3, 1> p = quat_cam_inv.template cast<T>()*landmark_body + T_cam_inv;
+
+        auto pt3d = observed_unit.template cast<T>() * depth[0];
+
+        Eigen::Map<Eigen::Matrix<T, 3, 1>> res(residuals);
+        T _conf = (T)conf;
+        res = (pt3d - p)*_conf;
+
+        return true;
+    }
+
+    static ceres::CostFunction *Create(const Eigen::Vector3d &_landmark_drone, const Eigen::Vector2d &observed_undist, const Swarm::Pose &_camera_pose, double conf)
+    {
+        Vector3d observed_unit_3d(observed_undist.x(), observed_undist.y(), 1.0);
+        observed_unit_3d.normalize();
+
+        return (new ceres::AutoDiffCostFunction<ReprojectionError_v2, 3, 7, 1>(
+            new ReprojectionError_v2(_landmark_drone, observed_unit_3d, _camera_pose, conf)));
+    }
+
+    Vector3d observed_unit;
     double conf;
     Quaterniond quat_cam_inv;
     Vector3d T_cam_inv;
@@ -89,10 +139,10 @@ struct ReprojectionExtrinsicError
         return true;
     }
 
-    static ceres::CostFunction *Create(const Eigen::Vector3d &_landmark_drone, const Eigen::Vector2d &observed_unit, double conf)
+    static ceres::CostFunction *Create(const Eigen::Vector3d &_landmark_drone, const Eigen::Vector2d &observed_undist, double conf)
     {
-        double observed_x = observed_unit.x();
-        double observed_y = observed_unit.y();
+        double observed_x = observed_undist.x();
+        double observed_y = observed_undist.y();
 
         return (new ceres::AutoDiffCostFunction<ReprojectionExtrinsicError, 2, 7, 7>(
             new ReprojectionExtrinsicError(_landmark_drone, observed_x, observed_y, conf)));

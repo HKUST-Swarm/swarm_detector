@@ -3,7 +3,7 @@
 #include "swarm_detector/reprojection_error.h"
 
 using namespace ceres;
-
+// #define MONO_USE_LANDMARK_DEPTHS
 namespace Swarm {
 StereoBundleAdjustment::StereoBundleAdjustment(const std::vector<Eigen::Vector3d> & _landmarks3d, 
         const std::vector<Eigen::Vector2d> & _landmarks_unit_1, 
@@ -43,13 +43,25 @@ std::pair<Swarm::Pose, Matrix6d> StereoBundleAdjustment::solve(const Swarm::Pose
     Problem problem;
     double pose_drone[7] = {0}; //x y z qx qy qz qw
     double cam_pose_2_inv[7] = {0};
+    std::vector<double> depths1(landmarks3d.size());
+
     initial.to_vector(pose_drone);
     camera_pose_2.inverse().to_vector(cam_pose_2_inv);
 
+    for (auto i = 0; i < depths1.size(); i ++) {
+        depths1[i] = camera_pose_1.apply_inv_pose_to(initial*landmarks3d[i]).z();
+    }
+
     for (auto index: landmarks2d_1_index) {
+#ifdef MONO_USE_LANDMARK_DEPTHS
+        auto cf = ReprojectionError_v2::Create(landmarks3d[index], landmarks_unit_1[index], 
+                camera_pose_1, confs1[index]*focal_length/pixel_error);
+        problem.AddResidualBlock(cf, nullptr, pose_drone, depths1.data() + index);
+#else
         auto cf = ReprojectionError::Create(landmarks3d[index], landmarks_unit_1[index], 
                 camera_pose_1, confs1[index]*focal_length/pixel_error);
         problem.AddResidualBlock(cf, nullptr, pose_drone);
+#endif
     }
     
     if (!est_extrinsic) {
