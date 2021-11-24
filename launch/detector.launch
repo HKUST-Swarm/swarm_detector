@@ -53,7 +53,7 @@
       p_track: 0.999
       min_p: 0.1
       drone_scale: 0.48
-      acpt_overlap_thres: 20
+      acpt_overlap_thres: 5
       pub_anonymous: true
       use_tensorrt: true
       tensorrt_fp16: true

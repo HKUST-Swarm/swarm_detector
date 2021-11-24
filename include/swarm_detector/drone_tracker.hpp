@@ -15,6 +15,7 @@ static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true);
 
 struct TrackedDrone {
     int _id;
+    int detect_no = 0; //Is the detected number
     bool is_stereo = false;
 
     cv::Rect2d bbox;

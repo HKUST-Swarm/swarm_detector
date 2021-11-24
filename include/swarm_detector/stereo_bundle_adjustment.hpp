@@ -15,7 +15,7 @@ class StereoBundleAdjustment {
     std::vector<float> confs1;
     std::vector<float> confs2;
     double focal_length = 300;
-    double pixel_error = 4;
+    double pixel_error = 6;
 
 public:
     Swarm::Pose est_drone_pose;

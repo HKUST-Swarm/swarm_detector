@@ -141,13 +141,14 @@ private:
     bool enable_down_cam;
     bool down_as_main;
     double gamma_;
+    double extrinsic_ang_cov = 0.0005;
     std::string output_path;
     cv::Mat lookUpTable;
 
 
     double sf_latest = 0;
     int self_id;
-    int publish_count = 0;
+    int target_count = 0;
     int img_count = 0;
     int save_img_count = 0;
     int pnpransac_inlier_min = 6;
