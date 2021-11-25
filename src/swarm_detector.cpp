@@ -536,8 +536,9 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
 
         detected_nodes.push_back(nd);
     }
-
-    swarm_detected_pub.publish(sd);
+    if (sd.detected_nodes.size() > 0) {
+        swarm_detected_pub.publish(sd);
+    }
 }
 
 cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr, bool enable_rear_side=true) {
