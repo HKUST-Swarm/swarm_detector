@@ -232,6 +232,7 @@ std::vector<TrackedDrone> VisualDetectionMatcher::match_targets(std::vector<Trac
     ROS_INFO("[SWARM_DETECT] match_targets %ld detected with %ld tracked and %ld est", 
         detected_targets.size(), tracked_drones.size(), swarm_est_ids.size());
     if (detected_targets.size() > 0 && tracked_drones.size() + swarm_est_poses.size() > 0) {
+        TicToc tic;
         auto cost = construct_cost_matrix(detected_targets, swarm_est_poses, tracked_drones);
         auto _cost = munkresMatrixfromEigen(cost);
         MunkresCpp::Munkres<double> m;
@@ -246,6 +247,9 @@ std::vector<TrackedDrone> VisualDetectionMatcher::match_targets(std::vector<Trac
                 }
             }
         }
+
+    ROS_INFO("[SWARM_DETECT] KM cost %.3fms", tic.toc());
+
 
 #ifdef DEBUG_OUTPUT
         auto res_mat = munkresMatrixtoEigen(_cost);

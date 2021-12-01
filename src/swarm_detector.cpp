@@ -437,6 +437,7 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const ros::Time &
 
 
     //Track only
+    TicToc tic;
     std::vector<TrackedDrone> tracked_drones;
     if(need_detect && pub_track_result || enable_tracker) {
         if (!is_down_cam) {
@@ -445,6 +446,7 @@ std::vector<TrackedDrone> SwarmDetector::process_detect_result(const ros::Time &
             tracked_drones = drone_trackers_down[direction]->track(img);
         }
     }
+    ROS_INFO("[SWARM_DETECT] Visual trackers@%d cost %.1fms", direction, tic.toc());
 
     if (!has_detected_or_tracked && debug_save_tracked_raw) {
         if (!(direction == 4 && !enable_rear)) {
@@ -852,7 +854,7 @@ std::vector<TrackedDrone> SwarmDetector::pose_estimation(const ros::Time & stamp
                             confs_up, confs_down, cam_pose_up, cam_pose_down);
                         TicToc tic_ba;
                         auto drone_pose_stereo = stereo_ba.solve(drone_pose, true);
-                        ROS_INFO("[SWARM_DETECT] TargetCount %d LMup %.2fms TargetCount %d LMdown %.2fms StereoBA %.2fms succ %d %d RP %s", drone_up.detect_no, t_du, t_dd, tic_ba.toc(), 
+                        ROS_INFO("[SWARM_DETECT] TargetCount %d LMup %.2fms TargetCount %d LMdown %.2fms StereoBA %.2fms bbox_w %f succ %d %d RP %s", drone_up.detect_no, t_du, t_dd, tic_ba.toc(), 
                             succ, succ_down, drone_pose_stereo.first.tostr().c_str());
                         drone_up.relative_pose = drone_pose_stereo.first; //In body frame
                         drone_up.covariance = drone_pose_stereo.second; //In body frame
@@ -861,7 +863,7 @@ std::vector<TrackedDrone> SwarmDetector::pose_estimation(const ros::Time & stamp
                         cam_pose_down = stereo_ba.cam_pose_2_est;
                         
                     } else {
-                        ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms succ %d %d", t_du, t_dd, succ, succ_down);
+                        ROS_INFO("[SWARM_DETECT] LMup %.2fms LMdown %.2fms bbox_w %f succ %d %d", t_du, t_dd, drone_up.bbox.width, succ, succ_down);
                     }
 
                     if (debug_show || pub_image) {
@@ -876,7 +878,7 @@ std::vector<TrackedDrone> SwarmDetector::pose_estimation(const ros::Time & stamp
                 Swarm::StereoBundleAdjustment stereo_ba(drone_landmarks, pts_unit_up, inliers_up, confs_up, cam_pose_up);
 
                 auto drone_pose_stereo = stereo_ba.solve(drone_pose, false);
-                ROS_INFO("[SWARM_DETECT] TargetCount %d LMup %.2fms MonoBA %.2fms succ %d RP %s", drone_up.detect_no, t_du, tic_ba.toc(), succ, 
+                ROS_INFO("[SWARM_DETECT] TargetCount %d LMup %.2fms MonoBA %.2fms bbox_w %f succ %d RP %s", drone_up.detect_no, t_du, tic_ba.toc(), drone_up.bbox.width, succ, 
                     drone_pose_stereo.first.tostr().c_str());
                 drone_up.relative_pose = drone_pose_stereo.first; //In body frame
                 // drone_up.relative_pose = drone_pose; //In body frame PnP
