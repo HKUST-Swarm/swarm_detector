@@ -21,7 +21,7 @@
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager --no-bond" output="$(arg output)" unless="$(arg external_nodelet)" />
 
- <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager)" output="$(arg output)">
+ <node pkg="nodelet" type="nodelet" name="SwarmDetector" args="load swarm_detector_pkg/SwarmDetector /$(arg manager) --no-bond" output="$(arg output)">
     <remap from="~image_raw" to="$(arg image_topic)"/>
     <remap from="~image_front" to="/flattener/fuck"/>
     <remap from="~odometry" to="/vins_estimator/imu_propagate"/>
