@@ -101,6 +101,7 @@ void SwarmDetector::onInit()
     nh.param<bool>("enable_down_cam", enable_down_cam, true);
     nh.param<bool>("down_as_main", down_as_main, true);
     nh.param<bool>("collect_data_mode", collect_data_mode, false);
+    nh.param<bool>("debug_only_front", debug_only_front, false);
     nh.param<std::string>("output_path", output_path, "/root/output/");
     nh.param<std::string>("drone_pose_network_model", drone_pose_network_model, "");
     nh.param<int>("drone_pose_width", drone_pose_width, 128);
@@ -263,9 +264,13 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback(const ros::Time & 
         cv::Mat & debug_img) { 
     std::vector<std::pair<cv::Rect2d, double>> detected_targets;
     if (need_detect) {
-        TicToc t_d;
-        detected_targets = detector->detect(_img);
-        ROS_INFO("[SWARM_DETECT] Detect squared cost %fms \n", t_d.toc());
+        if (debug_only_front && direction != VCAMERA_FRONT) {
+            ROS_INFO("Skip for debug reason");
+        } else {
+            TicToc t_d;
+            detected_targets = detector->detect(_img);
+            ROS_INFO("[SWARM_DETECT] Detect squared cost %fms \n", t_d.toc());
+        }
     }
 
     return this->process_detect_result(stamp, _img, direction, detected_targets, pose_drone, need_detect, is_down_cam, debug_img);
@@ -287,6 +292,15 @@ std::vector<TrackedDrone> SwarmDetector::virtual_cam_callback2(const ros::Time &
         det1 = ret.first;
         det2 = ret.second;
         ROS_INFO("[SWARM_DETECT] Detect squared of 2 images cost %fms\n", t_d.toc());
+    }
+
+    if (debug_only_front) {
+        if (dir1 == VCAMERA_FRONT) {
+            det2.clear();
+        } else {
+            det1.clear();
+            det2.clear();
+        }
     }
 
     if (need_detect || enable_tracker) {
@@ -379,10 +393,10 @@ bool SwarmDetector::detect_drone_landmarks_pose(const cv::Mat & img, TrackedDron
             char title[128] = {0};
             if (inliers.size() >= pnpransac_inlier_min) {
                 sprintf(title, "PnP POSE OK %s", est_drone_pose.tostr().c_str());
-                cv::putText(crop, title, cv::Point2f(20, 30), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+                cv::putText(crop, title, cv::Point2f(20, 30), CV_FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
             } else {
                 sprintf(title, "PnP POSE Failed %s", est_drone_pose.tostr().c_str());
-                cv::putText(crop, title, cv::Point2f(20, 30), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
+                cv::putText(crop, title, cv::Point2f(20, 30), CV_FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
             }
         }
     }
@@ -911,18 +925,18 @@ std::vector<TrackedDrone> SwarmDetector::pose_estimation(const ros::Time & stamp
                 cv::vconcat(crop_up, crop_down, crop_up);
 
                 if (succ) {
-                    sprintf(title, "StereoBA %s", est_drone_pose.tostr().c_str());
-                    cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+                    sprintf(title, "%d: StereoBA %s Tgt No %d", drone_up._id, est_drone_pose.tostr().c_str(), drone_up.detect_no);
+                    cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
                 }
             } else {
                 if (succ) {
-                    sprintf(title, "MonoBA %s", est_drone_pose.tostr().c_str());
-                    cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+                    sprintf(title, "%d: MonoBA %s Tgt No %d", drone_up._id,  est_drone_pose.tostr().c_str(), drone_up.detect_no);
+                    cv::putText(crop_up, title, cv::Point2f(20, 50), CV_FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
                 }                
             }
 
             if (!crop_up.empty()) {
-                sprintf(title, "Drone%d tracking", drone_up._id);
+                sprintf(title, "Drone tracking @%d", self_id);
                 cv::imshow(title, crop_up);
 
 
