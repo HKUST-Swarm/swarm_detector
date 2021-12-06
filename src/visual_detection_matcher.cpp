@@ -280,9 +280,9 @@ std::vector<TrackedDrone> VisualDetectionMatcher::match_targets(std::vector<Trac
                     auto target = detected_targets[i];
                     target._id = MAX_DRONE_ID + (anonymous_count ++);
                     matched_targets.emplace_back(target);
-                    printf("%ld->drone%d (matched_to: %d) anonymous: cost %.1f\n", i, target._id, matched_to, cost(matched_to, i));
+                    // printf("%ld->drone%d (matched_to: %d) anonymous: cost %.1f\n", i, target._id, matched_to, cost(matched_to, i));
                 } else {
-                    printf("%ld->drone%d (matched_to: %d) failed: cost %.1f\n", i, assigned_id, matched_to, cost(matched_to, i));
+                    // printf("%ld->drone%d (matched_to: %d) failed: cost %.1f\n", i, assigned_id, matched_to, cost(matched_to, i));
                 }
             }
         }
