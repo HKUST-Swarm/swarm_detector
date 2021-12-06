@@ -3,7 +3,7 @@
 #include "swarm_detector/fisheye_undist.hpp"
 #include "swarm_msgs/swarm_types.hpp"
 
-#define MAX_DRONE_ID 100
+#define MAX_DRONE_ID 1000
 
 // #define DEBUG_OUTPUT
 namespace swarm_detector_pkg {

@@ -16,6 +16,7 @@
   <arg name="pub_track_result" default="false" />
   <arg name="debug_save_tracked_raw" default="false" />
   <arg name="down_as_main" default="false" />
+  <arg name="debug_only_front" default="false" />
   <arg name="external_nodelet" default="false" />
   <arg name="drone_pose_network_model" default="/root/swarm_ws/src/swarm_detector/config/drone_pose_v1.2_128x128_rtx3080_fp32.trt" />
 
@@ -46,6 +47,7 @@
     <param name="debug_save_tracked_raw" type="bool" value="$(arg debug_save_tracked_raw)" />
     <param name="pub_track_result" type="bool" value="$(arg pub_track_result)" />
     <param name="drone_pose_network_model" type="string" value="$(arg drone_pose_network_model)" />
+    <param name="debug_only_front" type="bool" value="$(arg debug_only_front)" />
     <rosparam>
       thres: 0.5
       overlap_thres: 0.1

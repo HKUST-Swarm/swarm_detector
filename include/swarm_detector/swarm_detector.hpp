@@ -135,6 +135,7 @@ private:
     double detect_duration = 0.5;
     double triangulation_thres = 0.01;
     double drone_scale;
+    bool debug_only_front = false;
     
     bool enable_gamma_correction;
     bool enable_up_cam;
