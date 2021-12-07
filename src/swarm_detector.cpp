@@ -738,8 +738,10 @@ void SwarmDetector::flattened_image_callback(const vins::FlattenImagesConstPtr &
         }
 
         char title[100] = {0};
-        sprintf(title, "%s/DroneTracker/DroneTracker%d-%06d.jpg", output_path.c_str(), self_id, img_count);
-        cv::imwrite(title, show);
+        if (debug_save_tracked_raw) {
+            sprintf(title, "%s/DroneTracker/DroneTracker%d-%06d.jpg", output_path.c_str(), self_id, img_count);
+            cv::imwrite(title, show);
+        }
         
         double f_resize = ((double)show_width) / (double)show.cols;
         cv::resize(show, show, cv::Size(), f_resize, f_resize);
@@ -941,9 +943,10 @@ std::vector<TrackedDrone> SwarmDetector::pose_estimation(const ros::Time & stamp
                 sprintf(title, "Drone tracking @%d", self_id);
                 cv::imshow(title, crop_up);
 
-
-                sprintf(title, "%s/DroneTracker/DroneTracker%d-%06d.jpg", output_path.c_str(), self_id, drone_up.detect_no);
-                cv::imwrite(title, crop_up);
+                if (debug_save_tracked_raw) {
+                    sprintf(title, "%s/DroneTracker/DroneTracker%d-%06d.jpg", output_path.c_str(), self_id, drone_up.detect_no);
+                    cv::imwrite(title, crop_up);
+                }
             }
         }   
         
