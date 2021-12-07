@@ -535,7 +535,7 @@ void SwarmDetector::publish_tracked_drones(ros::Time stamp, Swarm::Pose local_po
         nd.header.stamp = stamp;
         nd.probaility = tdrone.probaility;
         nd.id = MAX_DETECTOR_ID*self_id + tdrone.detect_no;
-        std::cout << "covariance pose_drone\n" << tdrone.covariance << std::endl;
+        // std::cout << "covariance pose_drone\n" << tdrone.covariance << std::endl;
         
         memcpy(nd.relative_pose.covariance.data(), tdrone.covariance.data(), sizeof(double)*36);
         auto pose_4d = Swarm::Pose::DeltaPose(local_pose_self, local_pose_self*tdrone.relative_pose, true);
@@ -973,6 +973,9 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
         std::pair<Swarm::Pose, std::map<int, Swarm::Pose>> poses_drones, cv::Mat & _show,
         bool is_down_cam) {
     last_stamp = stamp;
+    TicToc t_cb;
+    static double t_cb_sum = 0;
+    static int t_cb_count = 0;
 
     int total_imgs = imgs.size();
     auto pose_drone = poses_drones.first;
@@ -1044,6 +1047,9 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
         }
     }
 
+    TicToc tt_match;
+    static double t_match_sum = 0;
+    static int t_match_count = 0;
     std::vector<TrackedDrone> detected_drones;
     if (!is_down_cam) {
         visual_detection_matcher_up->set_swarm_state(pose_drone, swarm_positions);
@@ -1057,6 +1063,9 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
         }
     }
 
+    t_match_sum += t_cb.toc();
+    t_match_count += 1;
+    ROS_INFO("[SWARM_LOOP] Full match_targets avg %.1fms cur %.1fms", t_match_sum/t_match_count, tt_match.toc());
 
     //Now we start detector on trackers
     if(pub_track_result || enable_tracker) {
@@ -1143,6 +1152,9 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
         }
     }
 
+    t_cb_sum += t_cb.toc();
+    t_cb_count ++;
+    ROS_INFO("[SWARM_DETECT] Full sum %.1fms avg %.1fms", t_cb_sum/t_cb_count, t_cb.toc());
     return ret;
 }
 
