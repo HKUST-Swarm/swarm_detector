@@ -1065,7 +1065,7 @@ std::vector<TrackedDrone> SwarmDetector::images_callback(const ros::Time & stamp
 
     t_match_sum += t_cb.toc();
     t_match_count += 1;
-    ROS_INFO("[SWARM_LOOP] Full match_targets avg %.1fms cur %.1fms", t_match_sum/t_match_count, tt_match.toc());
+    ROS_INFO("[SWARM_DETECT] Full match_targets avg %.1fms cur %.1fms", t_match_sum/t_match_count, tt_match.toc());
 
     //Now we start detector on trackers
     if(pub_track_result || enable_tracker) {

@@ -18,6 +18,7 @@
   <arg name="down_as_main" default="false" />
   <arg name="debug_only_front" default="false" />
   <arg name="external_nodelet" default="false" />
+  <arg name="pub_anonymous" default="true" />
   <arg name="drone_pose_network_model" default="/root/swarm_ws/src/swarm_detector/config/drone_pose_v1.2_128x128_rtx3080_fp32.trt" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager --no-bond" output="$(arg output)" unless="$(arg external_nodelet)" />
@@ -30,6 +31,7 @@
     <remap from="~vins_flattened" to="/vins_estimator/flattened_raw"/>
     <remap from="~swarm_fused" to="$(arg swarm_fused)" />
 
+    <param name="pub_anonymous" type="bool" value="$(arg pub_anonymous)" />
     <param name="cam_file" type="string" value="$(arg cam_file)" />
     <param name="cam_file_down" type="string" value="$(arg cam_file_down)" />
     <!-- <param name="weights" type="string" value="$(find swarm_detector)/config/drone_yolov3-tiny.weights" />
@@ -57,7 +59,6 @@
       min_p: 0.1
       drone_scale: 0.48
       acpt_overlap_thres: 5
-      pub_anonymous: false
       use_tensorrt: true
       tensorrt_fp16: true
       enable_tracker: true
